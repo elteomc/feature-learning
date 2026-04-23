@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Large run outputs
+results/runs/
+results/tmp/
+results/cache/
+
+# Model/data artifacts
+*.pt
+*.pth
+*.ckpt
+*.npz
+*.npy
+
+# Logs
+*.log
