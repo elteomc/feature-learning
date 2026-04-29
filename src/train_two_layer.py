@@ -38,8 +38,11 @@ def torch_dtype_from_name(name: str) -> torch.dtype:
 class ExperimentConfig:
     name: str
     seed: int = 0
+    data_family: str = "gaussian"
     n: int = 128
     d: int = 256
+    signal_rank: int = 8
+    signal_noise_std: float = 0.5
     m_teacher: int = 4
     m_student: int = 16
     teacher_B_scale: float = 1.0
@@ -79,19 +82,49 @@ def sample_inputs(cfg: ExperimentConfig, dtype: torch.dtype, device: torch.devic
     return X, eigvals
 
 
+def sample_low_rank_inputs(
+    cfg: ExperimentConfig,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    basis_raw = torch.randn(cfg.d, cfg.signal_rank, dtype=dtype, device=device)
+    basis, _ = torch.linalg.qr(basis_raw, mode="reduced")
+    z = torch.randn(cfg.n, cfg.signal_rank, dtype=dtype, device=device)
+    ambient_noise = torch.randn(cfg.n, cfg.d, dtype=dtype, device=device)
+    X = z @ basis.T + cfg.signal_noise_std * ambient_noise
+    eigvals = torch.full((cfg.d,), cfg.signal_noise_std ** 2, dtype=dtype, device=device)
+    eigvals[: cfg.signal_rank] = eigvals[: cfg.signal_rank] + 1.0
+    return X, eigvals, basis
+
+
 def softplus_hidden(X: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
     return F.softplus(X @ B.T)
 
 
-def sample_teacher(cfg: ExperimentConfig, dtype: torch.dtype, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
-    B_star = cfg.teacher_B_scale * torch.randn(cfg.m_teacher, cfg.d, dtype=dtype, device=device) / math.sqrt(cfg.d)
+def sample_teacher(
+    cfg: ExperimentConfig,
+    dtype: torch.dtype,
+    device: torch.device,
+    signal_basis: torch.Tensor | None = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    if signal_basis is None:
+        B_star = cfg.teacher_B_scale * torch.randn(cfg.m_teacher, cfg.d, dtype=dtype, device=device) / math.sqrt(cfg.d)
+    else:
+        coeff = torch.randn(cfg.m_teacher, cfg.signal_rank, dtype=dtype, device=device) / math.sqrt(cfg.signal_rank)
+        B_star = cfg.teacher_B_scale * (coeff @ signal_basis.T)
     a_star = cfg.teacher_a_scale * torch.randn(cfg.m_teacher, dtype=dtype, device=device) / math.sqrt(cfg.m_teacher)
     return B_star, a_star
 
 
 def generate_teacher_student_dataset(cfg: ExperimentConfig, dtype: torch.dtype, device: torch.device) -> Dict[str, torch.Tensor]:
-    X, eigvals = sample_inputs(cfg, dtype=dtype, device=device)
-    B_star, a_star = sample_teacher(cfg, dtype=dtype, device=device)
+    signal_basis = None
+    if cfg.data_family == "gaussian":
+        X, eigvals = sample_inputs(cfg, dtype=dtype, device=device)
+    elif cfg.data_family == "low_rank_signal":
+        X, eigvals, signal_basis = sample_low_rank_inputs(cfg, dtype=dtype, device=device)
+    else:
+        raise ValueError(f"Unsupported data_family {cfg.data_family!r}.")
+    B_star, a_star = sample_teacher(cfg, dtype=dtype, device=device, signal_basis=signal_basis)
     y_clean = softplus_hidden(X, B_star) @ a_star
     y = y_clean + cfg.noise_std * torch.randn_like(y_clean)
     return {"X": X, "y": y, "B_star": B_star, "a_star": a_star, "cov_eigvals": eigvals}
@@ -242,6 +275,33 @@ def plot_beta_collapse(out_dir: Path, cfg: ExperimentConfig, history: List[Dict[
     plt.close()
 
 
+def plot_two_regime_trajectory(out_dir: Path, cfg: ExperimentConfig, history: List[Dict[str, float]]) -> None:
+    series = [
+        ("beta_fit", "beta_fit"),
+        ("resid_mean_sq", "mean residual squared"),
+        ("gamma_tilde_eff_op", "weighted law error"),
+        ("gamma_eff_op", "raw law error"),
+    ]
+    plt.figure(figsize=(8, 6))
+    plotted = False
+    for key, label in series:
+        steps, values = _finite_positive_series(history, key)
+        if values:
+            plt.plot(steps, values, marker="o", markersize=2, label=label)
+            plotted = True
+    if not plotted:
+        plt.close()
+        return
+    plt.yscale("log")
+    plt.xlabel("training step")
+    plt.ylabel("scale")
+    plt.title(f"Two-regime trajectory: {cfg.name}")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_dir / "two_regime_trajectory.png", dpi=180, bbox_inches="tight")
+    plt.close()
+
+
 def train_one(cfg: ExperimentConfig) -> Dict[str, object]:
     dtype = torch_dtype_from_name(cfg.dtype)
     device = torch.device(cfg.device)
@@ -341,6 +401,7 @@ def train_one(cfg: ExperimentConfig) -> Dict[str, object]:
 
     save_history(out_dir, cfg, history, best_stationarity, best_weighted, best_raw_conditioning, crossover)
     plot_beta_collapse(out_dir, cfg, history)
+    plot_two_regime_trajectory(out_dir, cfg, history)
 
     return {
         "config": asdict(cfg),

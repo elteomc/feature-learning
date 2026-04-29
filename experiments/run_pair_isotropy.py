@@ -15,7 +15,7 @@ def parse_seeds(value: str) -> List[int]:
     return [int(part.strip()) for part in value.split(",") if part.strip()]
 
 
-def build_configs(seeds: Iterable[int], output_root: str, fast: bool) -> List[ExperimentConfig]:
+def build_configs(seeds: Iterable[int], output_root: str, fast: bool, include_low_rank: bool) -> List[ExperimentConfig]:
     configs: List[ExperimentConfig] = []
     for seed in seeds:
         for anisotropic in [False, True]:
@@ -23,9 +23,28 @@ def build_configs(seeds: Iterable[int], output_root: str, fast: bool) -> List[Ex
             cfg = ExperimentConfig(
                 name=f"{prefix}_seed_{seed}",
                 seed=seed,
+                data_family="gaussian",
                 anisotropic=anisotropic,
                 noise_std=0.0,
                 spectrum_min=1e-2,
+                beta_threshold=1e-5,
+                output_root=output_root,
+            )
+            if fast:
+                cfg.sgd_steps = 400
+                cfg.checkpoint_every = 100
+                cfg.lbfgs_outer_steps = 10
+                cfg.lbfgs_log_every = 5
+            configs.append(cfg)
+        if include_low_rank:
+            cfg = ExperimentConfig(
+                name=f"low_rank_signal_seed_{seed}",
+                seed=seed,
+                data_family="low_rank_signal",
+                anisotropic=False,
+                signal_rank=8,
+                signal_noise_std=0.5,
+                noise_std=0.0,
                 beta_threshold=1e-5,
                 output_root=output_root,
             )
@@ -58,6 +77,14 @@ def summarize_metric(rows: List[Dict[str, object]], block: str, metric: str) -> 
 
 def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[str, float]]]:
     return {
+        "all_checkpoints": {
+            "beta_over_resid_mean_sq": summarize_history_metric(rows, "beta_over_resid_mean_sq"),
+            "beta_over_resid_max_sq": summarize_history_metric(rows, "beta_over_resid_max_sq"),
+            "theorem_bound_ratio": summarize_history_metric(rows, "theorem_bound_ratio"),
+            "gamma_tilde_eff_rel": summarize_history_metric(rows, "gamma_tilde_eff_rel"),
+            "gamma_tilde_eff_rel_h2": summarize_history_metric(rows, "gamma_tilde_eff_rel_h2"),
+            "pair_push_scaled_op": summarize_history_metric(rows, "pair_push_scaled_op"),
+        },
         "best_stationarity": {
             "gamma_tilde_eff_op": summarize_metric(rows, "best_metrics_by_stationarity", "gamma_tilde_eff_op"),
             "gamma_tilde_eff_rel": summarize_metric(rows, "best_metrics_by_stationarity", "gamma_tilde_eff_rel"),
@@ -89,14 +116,45 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
     }
 
 
+def summarize_history_metric(rows: List[Dict[str, object]], metric: str) -> Dict[str, float]:
+    values = []
+    for row in rows:
+        history = row.get("_history", [])
+        if isinstance(history, list):
+            for checkpoint in history:
+                if isinstance(checkpoint, dict):
+                    value = checkpoint.get(metric)
+                    if isinstance(value, (int, float)) and math.isfinite(float(value)):
+                        values.append(float(value))
+    if not values:
+        return {"mean": float("nan"), "std": float("nan"), "min": float("nan"), "max": float("nan")}
+    return {
+        "mean": mean(values),
+        "std": pstdev(values) if len(values) > 1 else 0.0,
+        "min": min(values),
+        "max": max(values),
+    }
+
+
 def build_summary(results: List[Dict[str, object]]) -> Dict[str, object]:
     groups = {
-        "isotropic": [row for row in results if not row["config"]["anisotropic"]],
-        "anisotropic": [row for row in results if row["config"]["anisotropic"]],
+        "isotropic": [
+            row for row in results
+            if row["config"].get("data_family", "gaussian") == "gaussian" and not row["config"]["anisotropic"]
+        ],
+        "anisotropic": [
+            row for row in results
+            if row["config"].get("data_family", "gaussian") == "gaussian" and row["config"]["anisotropic"]
+        ],
+        "low_rank_signal": [
+            row for row in results
+            if row["config"].get("data_family", "gaussian") == "low_rank_signal"
+        ],
     }
+    runs = [{key: value for key, value in row.items() if key != "_history"} for row in results]
     return {
-        "runs": results,
-        "groups": {name: summarize_group(rows) for name, rows in groups.items()},
+        "runs": runs,
+        "groups": {name: summarize_group(rows) for name, rows in groups.items() if rows},
     }
 
 
@@ -117,6 +175,7 @@ def load_existing_results(configs: List[ExperimentConfig]) -> List[Dict[str, obj
                 "best_metrics_by_weighted_law": payload["best_metrics_by_weighted_law"],
                 "best_metrics_by_raw_conditioning": payload["best_metrics_by_raw_conditioning"],
                 "crossover_metrics": payload["crossover_metrics"],
+                "_history": history,
             }
         )
     return rows
@@ -127,10 +186,11 @@ def main() -> None:
     parser.add_argument("--seeds", default="0,1,2", help="Comma-separated random seeds.")
     parser.add_argument("--output-root", default="results/runs/pair_isotropy_multiseed")
     parser.add_argument("--fast", action="store_true", help="Use a short smoke-test schedule.")
+    parser.add_argument("--include-low-rank", action="store_true", help="Include low-rank signal plus isotropic noise.")
     parser.add_argument("--summary-only", action="store_true", help="Rebuild summaries from existing run histories.")
     args = parser.parse_args()
 
-    configs = build_configs(parse_seeds(args.seeds), args.output_root, args.fast)
+    configs = build_configs(parse_seeds(args.seeds), args.output_root, args.fast, args.include_low_rank)
     if args.summary_only:
         all_results = load_existing_results(configs)
     else:
@@ -148,6 +208,7 @@ def main() -> None:
                     "best_metrics_by_weighted_law": result["best_metrics_by_weighted_law"],
                     "best_metrics_by_raw_conditioning": result["best_metrics_by_raw_conditioning"],
                     "crossover_metrics": result["crossover_metrics"],
+                    "_history": result["history"],
                 }
             )
 
