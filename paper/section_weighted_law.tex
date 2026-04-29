@@ -1,0 +1,227 @@
+\section{A weighted AGOP law from stationarity}
+\label{sec:weighted-law}
+
+We study a two-layer model
+\[
+f(x)=a^\top \phi(Bx),
+\qquad
+B\in\mathbb R^{m\times d},
+\]
+trained with square loss and \(L_2\)-regularization on \(B\):
+\[
+\mathcal L(B,a)
+=
+\frac{1}{2n}\sum_{i=1}^n (f(x_i)-y_i)^2
++
+\frac{\lambda}{2}\|B\|_F^2.
+\]
+The classical neural feature ansatz motivates comparing the learned feature
+matrix
+\[
+H:=B^\top B
+\]
+to an AGOP-type matrix. Our derivation and experiments suggest that the stable
+late-training relation is not primarily a raw AGOP law. It is a
+residual-weighted AGOP law.
+
+For each training sample define
+\[
+r_i := f(x_i)-y_i,
+\qquad
+q_i := a\odot \phi'(Bx_i).
+\]
+Let
+\[
+X := [x_1,\ldots,x_n],
+\qquad
+Q := [q_1,\ldots,q_n],
+\qquad
+R := \operatorname{diag}(r_1,\ldots,r_n).
+\]
+Since \(\nabla f(x_i)=B^\top q_i\), the residual-weighted AGOP is
+\[
+\widetilde G
+:=
+B^\top Q R^2 Q^\top B
+=
+\sum_{i=1}^n r_i^2 \nabla f(x_i)\nabla f(x_i)^\top.
+\]
+
+\subsection{Stationarity identity}
+
+The gradient with respect to \(B\) is
+\[
+\nabla_B\mathcal L
+=
+\frac1n QRX^\top + \lambda B.
+\]
+Define the stationarity defect
+\[
+Z := \lambda n B + QRX^\top.
+\]
+Then
+\[
+\lambda n B = -QRX^\top + Z.
+\]
+With
+\[
+S:=QRX^\top XRQ^\top,
+\qquad
+T:=QR^2Q^\top,
+\]
+we obtain
+\[
+BB^\top
+=
+\frac{1}{\lambda^2 n^2}S
++
+E_{\mathrm{stat}},
+\]
+where
+\[
+E_{\mathrm{stat}}
+:=
+\frac{1}{\lambda^2 n^2}
+\left(
+-QRX^\top Z^\top
+-
+ZXRQ^\top
++
+ZZ^\top
+\right).
+\]
+At exact stationarity, \(Z=0\), and therefore
+\[
+BB^\top
+=
+\frac{1}{\lambda^2 n^2}S.
+\]
+
+\subsection{Effective dimension and pair diagnostics}
+
+The naive isotropic closure would replace \(S\) by \(dT\). This is too crude
+under anisotropic or low-rank input families. We instead use the best scalar
+fit
+\[
+d_{\mathrm{eff}}
+:=
+\frac{\langle S,T\rangle_F}{\|T\|_F^2},
+\qquad
+\kappa_{\mathrm{eff}}
+:=
+\frac{d_{\mathrm{eff}}}{\lambda^2 n^2}.
+\]
+The resulting hidden-space closure is
+\[
+BB^\top \approx \kappa_{\mathrm{eff}} T.
+\]
+Pushing through \(B^\top(\cdot)B\) gives the weighted square law
+\[
+H^2
+\approx
+\kappa_{\mathrm{eff}}\widetilde G.
+\]
+
+If \(T\) is singular, let \(P_T\) be the projector onto \(\operatorname{range}(T)\).
+The support-normalized pair diagnostic is
+\[
+\mathcal A_{\mathrm{pair}}
+:=
+\left\|
+T^{\dagger/2}ST^{\dagger/2}
+-
+d_{\mathrm{eff}}P_T
+\right\|_{\mathrm{op}}.
+\]
+This quantity is intentionally worst-case. It can be large because
+\(T^{\dagger/2}\) amplifies directions with small nonzero support. For this
+reason we also monitor the pushed-forward pair error
+\[
+\left\|B^\top(S-d_{\mathrm{eff}}T)B\right\|_{\mathrm{op}},
+\]
+which is closer to the error entering the final weighted law.
+
+\subsection{Deterministic weighted law}
+
+Let
+\[
+E_{\mathrm{pair}}:=S-d_{\mathrm{eff}}T.
+\]
+Then
+\[
+H^2-\kappa_{\mathrm{eff}}\widetilde G
+=
+B^\top
+\left(
+\frac{1}{\lambda^2 n^2}E_{\mathrm{pair}}
++
+E_{\mathrm{stat}}
+\right)B.
+\]
+Taking operator norms gives
+\[
+\|H^2-\kappa_{\mathrm{eff}}\widetilde G\|_{\mathrm{op}}
+\le
+\|B\|_{\mathrm{op}}^2
+\left(
+\frac{\|T\|_{\mathrm{op}}}{\lambda^2 n^2}
+\mathcal A_{\mathrm{pair}}
++
+\|E_{\mathrm{stat}}\|_{\mathrm{op}}
+\right).
+\]
+This is the deterministic theorem template tested by the experiments.
+
+\subsection{Why the raw AGOP law becomes ill-conditioned}
+
+The raw AGOP bridge compares
+\[
+M=\frac1n\sum_{i=1}^n q_iq_i^\top,
+\qquad
+\widetilde M=\frac1n\sum_{i=1}^n r_i^2q_iq_i^\top.
+\]
+Define the Frobenius best-fit scalar
+\[
+\beta_{\mathrm{fit}}
+:=
+\frac{\langle \widetilde M,M\rangle_F}{\|M\|_F^2}.
+\]
+Using
+\[
+\langle q_iq_i^\top,q_jq_j^\top\rangle_F
+=
+(q_i^\top q_j)^2,
+\]
+we get
+\[
+\beta_{\mathrm{fit}}
+=
+\frac{
+\sum_{i,j} r_i^2(q_i^\top q_j)^2
+}{
+\sum_{i,j}(q_i^\top q_j)^2
+}.
+\]
+Thus \(\beta_{\mathrm{fit}}\) is a nonnegative weighted average of the squared
+residuals. In particular,
+\[
+\min_i r_i^2
+\le
+\beta_{\mathrm{fit}}
+\le
+\max_i r_i^2.
+\]
+As the model approaches interpolation, \(\beta_{\mathrm{fit}}\to 0\). Converting
+the weighted law into a raw AGOP law then requires division by a small scalar,
+which makes the raw relation ill-conditioned late in training.
+
+\subsection{Empirical summary}
+
+We test isotropic Gaussian, anisotropic Gaussian, and low-rank signal plus
+isotropic noise families. Across all three families, the observed weighted
+residual is small at best-stationarity checkpoints and the deterministic bound
+is conservative on average. The raw support-normalized \(\mathcal A_{\mathrm{pair}}\)
+can be large, but the pushed-forward pair error is small. Across all logged
+checkpoints, \(\beta_{\mathrm{fit}}\) closely tracks mean residual squared,
+supporting the interpretation that the raw-to-weighted bridge scalar is
+essentially training residual energy in these experiments.

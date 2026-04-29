@@ -1,0 +1,96 @@
+# Experiment log
+
+## Current summary
+
+The current experiment suite tests the weighted AGOP law on three synthetic
+teacher-student families:
+
+1. isotropic Gaussian inputs
+2. anisotropic Gaussian inputs
+3. low-rank signal plus isotropic noise
+
+The main run is stored in:
+
+```text
+results/runs/pair_isotropy_with_low_rank/
+```
+
+The compact summary is:
+
+```text
+results/runs/pair_isotropy_with_low_rank/compact_summary.json
+```
+
+## Main claims supported by the run
+
+### Weighted law
+
+At best-stationarity checkpoints, the residual-weighted law
+
+```text
+H^2 approx kappa_eff G_tilde
+```
+
+is stable across all three data families. The observed weighted residual stays
+below the deterministic theorem bound on average.
+
+### Beta collapse
+
+Across all logged checkpoints, `beta_fit` closely tracks the empirical residual
+energy `mean(r^2)`:
+
+| family | mean beta / mean(r^2) | std | min | max |
+| --- | ---: | ---: | ---: | ---: |
+| isotropic | 0.993 | 0.042 | 0.847 | 1.059 |
+| anisotropic | 1.002 | 0.015 | 0.968 | 1.050 |
+| low_rank_signal | 1.015 | 0.050 | 0.893 | 1.181 |
+
+This supports the simplified empirical statement:
+
+```text
+beta_fit is essentially the training residual energy in these experiments.
+```
+
+The lemma in `notes/theorem_sketch.md` explains why `beta_fit` must collapse
+near interpolation. The new empirical point is that the hidden-gradient kernel
+does not strongly bias the weighted average away from ordinary mean residual
+energy in these runs.
+
+### Pair diagnostics
+
+The raw support-normalized `A_pair` can be large, but the pushed-forward pair
+error is small at best-stationarity checkpoints:
+
+| family | mean A_pair | mean pair_push_scaled_op | mean theorem bound ratio |
+| --- | ---: | ---: | ---: |
+| isotropic | 260.947 | 5.59e-05 | 0.147 |
+| anisotropic | 76.103 | 1.11e-05 | 0.0896 |
+| low_rank_signal | 97.771 | 2.51e-06 | 0.0987 |
+
+This supports treating `A_pair` as a conservative worst-direction diagnostic,
+while using pushed pair error as the more direct diagnostic for the weighted law.
+
+### Relative errors
+
+The symmetric relative weighted error is stable enough to report as a secondary
+diagnostic:
+
+| family | best-stationarity symmetric relative mean | std |
+| --- | ---: | ---: |
+| isotropic | 0.288 | 0.132 |
+| anisotropic | 0.273 | 0.177 |
+| low_rank_signal | 0.340 | 0.199 |
+
+The `H^2`-only normalization can be unstable across all checkpoints, so it
+should not be central in the writeup.
+
+## Final figure set
+
+The current final figure candidates are:
+
+1. weighted law residual and theorem bound ratio by family
+2. two-regime trajectory for one representative seed per family
+3. pair diagnostic comparison using `A_pair`, pushed pair error, and residual
+4. optional matrix visualization for `H^2` and scaled weighted AGOP
+
+The first three are enough for the project narrative.
