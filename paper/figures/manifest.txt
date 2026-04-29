@@ -1,0 +1,11 @@
+anisotropic_beta_collapse.png
+anisotropic_two_regime_trajectory.png
+beta_over_residual_energy_by_family.png
+isotropic_beta_collapse.png
+isotropic_two_regime_trajectory.png
+low_rank_signal_beta_collapse.png
+low_rank_signal_two_regime_trajectory.png
+pushed_pair_error_by_family.png
+symmetric_relative_error_by_family.png
+theorem_bound_ratio_by_family.png
+weighted_residual_by_family.png
