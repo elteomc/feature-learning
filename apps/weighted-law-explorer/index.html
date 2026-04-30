@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weighted AGOP Law Explorer</title>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Weighted AGOP Law Explorer</h1>
+      <p>
+        An interactive guide to the two-regime story: weighted AGOP is stable
+        late in training, while raw AGOP is an intermediate-regime object
+        because the beta bridge collapses near interpolation.
+      </p>
+    </header>
+
+    <section>
+      <h2>Explore the evidence</h2>
+      <label for="family-select">Family</label>
+      <select id="family-select"></select>
+
+      <label for="metric-select">Metric</label>
+      <select id="metric-select"></select>
+
+      <button id="reset-button" type="button">Reset</button>
+    </section>
+
+    <section>
+      <h2>Selected metric</h2>
+      <div id="metric-card"></div>
+    </section>
+
+    <section>
+      <h2>Core claims</h2>
+      <div id="claim-cards"></div>
+    </section>
+
+    <section>
+      <h2>Family comparison</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Family</th>
+            <th>Weighted residual</th>
+            <th>Bound ratio</th>
+            <th>Beta / mean r^2</th>
+            <th>Pushed pair error</th>
+          </tr>
+        </thead>
+        <tbody id="summary-table"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Figures</h2>
+      <label for="figure-select">Figure</label>
+      <select id="figure-select"></select>
+      <figure>
+        <img id="figure-image" alt="Selected weighted AGOP figure" width="900">
+        <figcaption id="figure-caption"></figcaption>
+      </figure>
+    </section>
+
+    <section>
+      <h2>Presentation guidance</h2>
+      <ul>
+        <li>Make the weighted law and beta-collapse story central.</li>
+        <li>Treat <code>A_pair</code> as conservative and support-normalized.</li>
+        <li>Use pushed pair error as the diagnostic closest to the law.</li>
+        <li>Keep <code>H^2</code>-only relative error secondary.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
