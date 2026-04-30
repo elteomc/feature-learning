@@ -15,7 +15,13 @@ def parse_seeds(value: str) -> List[int]:
     return [int(part.strip()) for part in value.split(",") if part.strip()]
 
 
-def build_configs(seeds: Iterable[int], output_root: str, fast: bool, include_low_rank: bool) -> List[ExperimentConfig]:
+def build_configs(
+    seeds: Iterable[int],
+    output_root: str,
+    fast: bool,
+    include_low_rank: bool,
+    include_structured: bool,
+) -> List[ExperimentConfig]:
     configs: List[ExperimentConfig] = []
     for seed in seeds:
         for anisotropic in [False, True]:
@@ -54,6 +60,25 @@ def build_configs(seeds: Iterable[int], output_root: str, fast: bool, include_lo
                 cfg.lbfgs_outer_steps = 10
                 cfg.lbfgs_log_every = 5
             configs.append(cfg)
+        if include_structured:
+            for data_family in ["clustered_gaussian", "mixture_subspaces"]:
+                cfg = ExperimentConfig(
+                    name=f"{data_family}_seed_{seed}",
+                    seed=seed,
+                    data_family=data_family,
+                    anisotropic=False,
+                    signal_rank=8,
+                    signal_noise_std=0.35,
+                    noise_std=0.0,
+                    beta_threshold=1e-5,
+                    output_root=output_root,
+                )
+                if fast:
+                    cfg.sgd_steps = 400
+                    cfg.checkpoint_every = 100
+                    cfg.lbfgs_outer_steps = 10
+                    cfg.lbfgs_log_every = 5
+                configs.append(cfg)
     return configs
 
 
@@ -86,10 +111,15 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
             "leverage_resid_sq_corr_abs": summarize_history_metric_abs(rows, "leverage_resid_sq_corr"),
             "beta_corr_cv_product": summarize_history_metric(rows, "beta_corr_cv_product"),
             "beta_over_resid_max_sq": summarize_history_metric(rows, "beta_over_resid_max_sq"),
+            "M_bridge_op": summarize_history_metric(rows, "M_bridge_op"),
+            "M_bridge_rel_frob": summarize_history_metric(rows, "M_bridge_rel_frob"),
             "theorem_bound_ratio": summarize_history_metric(rows, "theorem_bound_ratio"),
             "gamma_tilde_eff_rel": summarize_history_metric(rows, "gamma_tilde_eff_rel"),
             "gamma_tilde_eff_rel_h2": summarize_history_metric(rows, "gamma_tilde_eff_rel_h2"),
             "pair_push_scaled_op": summarize_history_metric(rows, "pair_push_scaled_op"),
+            "pair_top_defect_gain": summarize_history_metric(rows, "pair_top_defect_gain"),
+            "pair_gain_defect_corr_abs": summarize_history_metric(rows, "pair_gain_defect_corr_abs"),
+            "pair_weighted_contribution_max": summarize_history_metric(rows, "pair_weighted_contribution_max"),
         },
         "best_stationarity": {
             "gamma_tilde_eff_op": summarize_metric(rows, "best_metrics_by_stationarity", "gamma_tilde_eff_op"),
@@ -99,6 +129,10 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
             "A_pair_op": summarize_metric(rows, "best_metrics_by_stationarity", "A_pair_op"),
             "pair_fit_op": summarize_metric(rows, "best_metrics_by_stationarity", "pair_fit_op"),
             "pair_push_scaled_op": summarize_metric(rows, "best_metrics_by_stationarity", "pair_push_scaled_op"),
+            "pair_top_abs_defect": summarize_metric(rows, "best_metrics_by_stationarity", "pair_top_abs_defect"),
+            "pair_top_defect_gain": summarize_metric(rows, "best_metrics_by_stationarity", "pair_top_defect_gain"),
+            "pair_weighted_contribution_max": summarize_metric(rows, "best_metrics_by_stationarity", "pair_weighted_contribution_max"),
+            "pair_gain_defect_corr_abs": summarize_metric(rows, "best_metrics_by_stationarity", "pair_gain_defect_corr_abs"),
             "theorem_bound_ratio": summarize_metric(rows, "best_metrics_by_stationarity", "theorem_bound_ratio"),
             "delta_stationary_op": summarize_metric(rows, "best_metrics_by_stationarity", "delta_stationary_op"),
             "beta_over_resid_mean_sq": summarize_metric(rows, "best_metrics_by_stationarity", "beta_over_resid_mean_sq"),
@@ -109,6 +143,8 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
             "leverage_resid_sq_corr": summarize_metric(rows, "best_metrics_by_stationarity", "leverage_resid_sq_corr"),
             "beta_corr_cv_product": summarize_metric(rows, "best_metrics_by_stationarity", "beta_corr_cv_product"),
             "beta_over_resid_max_sq": summarize_metric(rows, "best_metrics_by_stationarity", "beta_over_resid_max_sq"),
+            "M_bridge_op": summarize_metric(rows, "best_metrics_by_stationarity", "M_bridge_op"),
+            "M_bridge_rel_frob": summarize_metric(rows, "best_metrics_by_stationarity", "M_bridge_rel_frob"),
         },
         "best_raw_conditioning": {
             "beta_fit": summarize_metric(rows, "best_metrics_by_raw_conditioning", "beta_fit"),
@@ -122,6 +158,8 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
             "leverage_resid_sq_corr": summarize_metric(rows, "best_metrics_by_raw_conditioning", "leverage_resid_sq_corr"),
             "beta_corr_cv_product": summarize_metric(rows, "best_metrics_by_raw_conditioning", "beta_corr_cv_product"),
             "beta_over_resid_max_sq": summarize_metric(rows, "best_metrics_by_raw_conditioning", "beta_over_resid_max_sq"),
+            "M_bridge_op": summarize_metric(rows, "best_metrics_by_raw_conditioning", "M_bridge_op"),
+            "M_bridge_rel_frob": summarize_metric(rows, "best_metrics_by_raw_conditioning", "M_bridge_rel_frob"),
             "gamma_eff_op": summarize_metric(rows, "best_metrics_by_raw_conditioning", "gamma_eff_op"),
             "gamma_fit_op": summarize_metric(rows, "best_metrics_by_raw_conditioning", "gamma_fit_op"),
             "gamma_eff_rel": summarize_metric(rows, "best_metrics_by_raw_conditioning", "gamma_eff_rel"),
@@ -188,6 +226,14 @@ def build_summary(results: List[Dict[str, object]]) -> Dict[str, object]:
             row for row in results
             if row["config"].get("data_family", "gaussian") == "low_rank_signal"
         ],
+        "clustered_gaussian": [
+            row for row in results
+            if row["config"].get("data_family", "gaussian") == "clustered_gaussian"
+        ],
+        "mixture_subspaces": [
+            row for row in results
+            if row["config"].get("data_family", "gaussian") == "mixture_subspaces"
+        ],
     }
     runs = [{key: value for key, value in row.items() if key != "_history"} for row in results]
     return {
@@ -225,10 +271,17 @@ def main() -> None:
     parser.add_argument("--output-root", default="results/runs/pair_isotropy_multiseed")
     parser.add_argument("--fast", action="store_true", help="Use a short smoke-test schedule.")
     parser.add_argument("--include-low-rank", action="store_true", help="Include low-rank signal plus isotropic noise.")
+    parser.add_argument("--include-structured", action="store_true", help="Include clustered and mixture-of-subspaces families.")
     parser.add_argument("--summary-only", action="store_true", help="Rebuild summaries from existing run histories.")
     args = parser.parse_args()
 
-    configs = build_configs(parse_seeds(args.seeds), args.output_root, args.fast, args.include_low_rank)
+    configs = build_configs(
+        parse_seeds(args.seeds),
+        args.output_root,
+        args.fast,
+        args.include_low_rank,
+        args.include_structured,
+    )
     if args.summary_only:
         all_results = load_existing_results(configs)
     else:
