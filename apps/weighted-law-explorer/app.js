@@ -203,21 +203,49 @@ function renderMetricCard() {
       family.betaOverMeanMax.toFixed(3)
     card.appendChild(range)
   }
+
+  renderMetricBars()
 }
 
 function renderClaims() {
   const target = document.getElementById("claim-cards")
   target.innerHTML = ""
   claims.forEach((claim) => {
-    const details = document.createElement("details")
-    details.open = true
-    const summary = document.createElement("summary")
+    const template = document.getElementById("claim-template")
+    const details = template.content.firstElementChild.cloneNode(true)
+    const summary = details.querySelector("summary")
+    const text = details.querySelector("p")
     summary.textContent = claim.title
-    const text = document.createElement("p")
     text.textContent = claim.text
     details.appendChild(summary)
     details.appendChild(text)
     target.appendChild(details)
+  })
+}
+
+function metricScale(metricKey, value) {
+  const values = Object.values(families).map((family) => family[metricKey])
+  const maxValue = Math.max(...values)
+  if (!Number.isFinite(maxValue) || maxValue <= 0) {
+    return 0
+  }
+  return Math.max(4, 100 * value / maxValue)
+}
+
+function renderMetricBars() {
+  const metricKey = document.getElementById("metric-select").value
+  const metric = metrics[metricKey]
+  const target = document.getElementById("metric-bars")
+  target.innerHTML = ""
+
+  Object.values(families).forEach((family) => {
+    const template = document.getElementById("bar-template")
+    const bar = template.content.firstElementChild.cloneNode(true)
+    const value = family[metricKey]
+    bar.querySelector(".bar-label").textContent = family.label
+    bar.querySelector(".bar-value").textContent = formatValue(value, metric.format)
+    bar.querySelector(".bar-fill").style.width = metricScale(metricKey, value).toFixed(1) + "%"
+    target.appendChild(bar)
   })
 }
 
