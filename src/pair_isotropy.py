@@ -39,6 +39,94 @@ def best_scalar_fit(target: torch.Tensor, basis: torch.Tensor, eps: float = 1e-1
     return float(numer / denom)
 
 
+def _nan_pair_spectral_metrics() -> Dict[str, float]:
+    return {
+        "pair_spectral_rank": 0,
+        "pair_spectral_defect_op": float("nan"),
+        "pair_top_abs_defect": float("nan"),
+        "pair_top_defect_gain": float("nan"),
+        "pair_top_defect_weighted": float("nan"),
+        "pair_top_gain": float("nan"),
+        "pair_top_gain_abs_defect": float("nan"),
+        "pair_top_gain_weighted": float("nan"),
+        "pair_gain_defect_corr_abs": float("nan"),
+        "pair_weighted_contribution_max": float("nan"),
+        "pair_weighted_contribution_sum": float("nan"),
+    }
+
+
+def _safe_corr_abs(x: torch.Tensor, y: torch.Tensor, eps: float = 1e-12) -> float:
+    if x.numel() < 2 or y.numel() < 2:
+        return float("nan")
+    x_centered = x - torch.mean(x)
+    y_centered = y - torch.mean(y)
+    denom = torch.sqrt(torch.mean(x_centered.square())) * torch.sqrt(torch.mean(y_centered.square()))
+    denom_value = float(denom.item())
+    if not math.isfinite(denom_value) or denom_value <= eps:
+        return float("nan")
+    corr = torch.mean(x_centered * y_centered) / denom
+    return float(torch.abs(corr).item())
+
+
+def compute_pair_spectral_gain_metrics(
+    *,
+    C: torch.Tensor,
+    X: torch.Tensor,
+    d_eff: float,
+    eps_rel: float = 1e-10,
+) -> Dict[str, float]:
+    """Measure whether large pair defects have low stationarity-induced gain."""
+
+    if (not math.isfinite(d_eff)) or (not is_finite_tensor(C)) or (not is_finite_tensor(X)):
+        return _nan_pair_spectral_metrics()
+
+    try:
+        _, singular_values, Vh = torch.linalg.svd(C, full_matrices=False)
+    except Exception:
+        return _nan_pair_spectral_metrics()
+
+    if singular_values.numel() == 0:
+        return _nan_pair_spectral_metrics()
+
+    max_singular = torch.max(singular_values).clamp_min(torch.tensor(1.0, dtype=C.dtype, device=C.device))
+    keep = singular_values > eps_rel * max_singular
+    if not torch.any(keep):
+        return _nan_pair_spectral_metrics()
+
+    sigma_sq = singular_values[keep].square()
+    Vh_pos = Vh[keep, :]
+    rank = int(keep.sum().item())
+    H_X = symmetrize(Vh_pos @ X @ X.T @ Vh_pos.T)
+    defect = symmetrize(H_X - d_eff * torch.eye(rank, dtype=X.dtype, device=X.device))
+
+    try:
+        defect_evals, defect_evecs = torch.linalg.eigh(defect)
+    except Exception:
+        return _nan_pair_spectral_metrics()
+
+    abs_defects = torch.abs(defect_evals)
+    gain_inputs = (sigma_sq.unsqueeze(1) * defect_evecs)
+    gain_vectors = X.T @ Vh_pos.T @ gain_inputs
+    gains = torch.linalg.vector_norm(gain_vectors, dim=0)
+    weighted = abs_defects * gains.square()
+
+    top_defect_idx = int(torch.argmax(abs_defects).item())
+    top_gain_idx = int(torch.argmax(gains).item())
+    return {
+        "pair_spectral_rank": rank,
+        "pair_spectral_defect_op": float(torch.max(abs_defects).item()),
+        "pair_top_abs_defect": float(abs_defects[top_defect_idx].item()),
+        "pair_top_defect_gain": float(gains[top_defect_idx].item()),
+        "pair_top_defect_weighted": float(weighted[top_defect_idx].item()),
+        "pair_top_gain": float(gains[top_gain_idx].item()),
+        "pair_top_gain_abs_defect": float(abs_defects[top_gain_idx].item()),
+        "pair_top_gain_weighted": float(weighted[top_gain_idx].item()),
+        "pair_gain_defect_corr_abs": _safe_corr_abs(abs_defects, gains),
+        "pair_weighted_contribution_max": float(torch.max(weighted).item()),
+        "pair_weighted_contribution_sum": float(torch.sum(weighted).item()),
+    }
+
+
 def compute_pair_isotropy_metrics(
     *,
     S: torch.Tensor,

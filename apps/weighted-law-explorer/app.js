@@ -89,6 +89,10 @@ const claims = [
   {
     title: "Pushed pair error matters",
     text: "A_pair can be large, but the pair error after pushing through B is small."
+  },
+  {
+    title: "Bad directions need gain",
+    text: "The new pair diagnostics check whether large pair defects occur in directions with small stationarity-induced gain."
   }
 ]
 
@@ -121,6 +125,21 @@ const figures = [
     caption: "Secondary relative weighted-law diagnostic"
   },
   {
+    label: "Bridge operator error",
+    file: "bridge_operator_error_by_family.png",
+    caption: "Relative Frobenius error of M_tilde minus beta_fit M"
+  },
+  {
+    label: "Pair gain contribution",
+    file: "pair_gain_weighted_contribution_by_family.png",
+    caption: "Largest gain-weighted pair contribution at best-stationarity checkpoints"
+  },
+  {
+    label: "Pair gain correlation",
+    file: "pair_gain_correlation_by_family.png",
+    caption: "Absolute correlation between pair defect size and stationarity gain"
+  },
+  {
     label: "Isotropic trajectory",
     file: "isotropic_two_regime_trajectory.png",
     caption: "Two-regime trajectory for isotropic seed 0"
@@ -134,6 +153,16 @@ const figures = [
     label: "Low-rank trajectory",
     file: "low_rank_signal_two_regime_trajectory.png",
     caption: "Two-regime trajectory for low-rank signal seed 0"
+  },
+  {
+    label: "Isotropic phase diagram",
+    file: "isotropic_phase_diagram.png",
+    caption: "Raw quality compared with weighted quality along training"
+  },
+  {
+    label: "Isotropic pair gain diagnostics",
+    file: "isotropic_pair_gain_diagnostics.png",
+    caption: "Worst pair defect compared with stationarity-gain-weighted contributions"
   }
 ]
 
@@ -374,6 +403,41 @@ function renderBetaDiagnostic() {
   ))
 }
 
+function renderPairDiagnostic() {
+  const worstDefect = pow10FromSlider("pair-defect-slider")
+  const badDirectionGain = pow10FromSlider("pair-gain-slider")
+  const gainCorr = Number(document.getElementById("gain-corr-slider").value)
+  const gainWeightedContribution = worstDefect * badDirectionGain * badDirectionGain
+  const correlatedRisk = Math.abs(gainCorr) * worstDefect
+
+  setOutput("pair-defect-output", worstDefect)
+  setOutput("pair-gain-output", badDirectionGain)
+  setFixedOutput("gain-corr-output", gainCorr)
+
+  const target = document.getElementById("pair-diagnostic-cards")
+  target.innerHTML = ""
+  target.appendChild(simCard(
+    "support defect",
+    worstDefect.toExponential(2),
+    "This is the conservative worst-direction pair diagnostic."
+  ))
+  target.appendChild(simCard(
+    "gain on bad direction",
+    badDirectionGain.toExponential(2),
+    "Small stationarity-induced gain can make a large defect mostly invisible."
+  ))
+  target.appendChild(simCard(
+    "gain-weighted contribution",
+    gainWeightedContribution.toExponential(2),
+    "The experiment logs this kind of contribution by pair eigendirection."
+  ))
+  target.appendChild(simCard(
+    "diagnostic risk",
+    correlatedRisk.toExponential(2),
+    "High positive coupling between defect size and gain is the failure warning."
+  ))
+}
+
 function reset() {
   document.getElementById("family-select").value = "isotropic"
   document.getElementById("metric-select").value = "weightedResidual"
@@ -384,10 +448,14 @@ function reset() {
   document.getElementById("leverage-cv-slider").value = "-1"
   document.getElementById("resid-cv-slider").value = "0"
   document.getElementById("corr-slider").value = "0.05"
+  document.getElementById("pair-defect-slider").value = "2"
+  document.getElementById("pair-gain-slider").value = "-2"
+  document.getElementById("gain-corr-slider").value = "0.05"
   renderMetricCard()
   renderFigure()
   renderSimulator()
   renderBetaDiagnostic()
+  renderPairDiagnostic()
 }
 
 function bindEvents() {
@@ -401,6 +469,9 @@ function bindEvents() {
   document.getElementById("leverage-cv-slider").addEventListener("input", renderBetaDiagnostic)
   document.getElementById("resid-cv-slider").addEventListener("input", renderBetaDiagnostic)
   document.getElementById("corr-slider").addEventListener("input", renderBetaDiagnostic)
+  document.getElementById("pair-defect-slider").addEventListener("input", renderPairDiagnostic)
+  document.getElementById("pair-gain-slider").addEventListener("input", renderPairDiagnostic)
+  document.getElementById("gain-corr-slider").addEventListener("input", renderPairDiagnostic)
 }
 
 function main() {

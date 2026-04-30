@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import shutil
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
@@ -29,11 +30,14 @@ def metric_value(
     metric: str,
     stat: str = "mean",
 ) -> float:
-    return float(summary[family][block][metric][stat])
+    try:
+        return float(summary[family][block][metric][stat])
+    except KeyError:
+        return float("nan")
 
 
 def sorted_families(summary: Dict[str, SummaryGroup]) -> List[str]:
-    preferred = ["isotropic", "anisotropic", "low_rank_signal"]
+    preferred = ["isotropic", "anisotropic", "low_rank_signal", "clustered_gaussian", "mixture_subspaces"]
     return [family for family in preferred if family in summary]
 
 
@@ -47,7 +51,8 @@ def save_bar_plot(
 ) -> None:
     fig, ax = plt.subplots(figsize=(7, 4))
     xs = list(range(len(labels)))
-    ax.bar(xs, values)
+    plotted_values = [value if math.isfinite(value) else 0.0 for value in values]
+    ax.bar(xs, plotted_values)
     ax.set_xticks(xs)
     ax.set_xticklabels(labels, rotation=20, ha="right")
     ax.set_title(title)
@@ -105,6 +110,30 @@ def make_summary_figures(summary_path: Path, outdir: Path) -> None:
             "relative error",
             False,
         ),
+        (
+            "bridge_operator_error_by_family.png",
+            "all_checkpoints",
+            "M_bridge_rel_frob",
+            "Beta bridge operator error",
+            "relative Frobenius error",
+            False,
+        ),
+        (
+            "pair_gain_weighted_contribution_by_family.png",
+            "best_stationarity",
+            "pair_weighted_contribution_max",
+            "Gain-weighted pair contribution",
+            "max contribution",
+            True,
+        ),
+        (
+            "pair_gain_correlation_by_family.png",
+            "best_stationarity",
+            "pair_gain_defect_corr_abs",
+            "Pair defect versus stationarity gain",
+            "absolute correlation",
+            False,
+        ),
     ]
 
     for filename, block, metric, title, ylabel, logy in figure_specs:
@@ -115,7 +144,7 @@ def make_summary_figures(summary_path: Path, outdir: Path) -> None:
 def copy_representative_trajectories(results_dir: Path, outdir: Path, families: Iterable[str]) -> None:
     for family in families:
         run_dir = results_dir / f"{family}_seed_0"
-        for name in ["beta_collapse.png", "two_regime_trajectory.png"]:
+        for name in ["beta_collapse.png", "beta_fit_diagnostics.png", "pair_gain_diagnostics.png", "phase_diagram.png", "two_regime_trajectory.png"]:
             source = run_dir / name
             if source.exists():
                 target = outdir / f"{family}_{name}"

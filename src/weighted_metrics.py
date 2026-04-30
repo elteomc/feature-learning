@@ -8,6 +8,7 @@ import torch
 from src.pair_isotropy import (
     best_scalar_fit,
     compute_pair_isotropy_metrics,
+    compute_pair_spectral_gain_metrics,
     safe_op_norm_symmetric,
     symmetrize,
 )
@@ -114,6 +115,19 @@ def compute_weighted_metrics(
     pair_push_scaled_op = pair_push_op / (lambda_B ** 2 * n ** 2) if math.isfinite(pair_push_op) else float("nan")
 
     beta_fit = best_scalar_fit(M_tilde, M)
+    M_bridge = M_tilde - beta_fit * M if math.isfinite(beta_fit) else torch.full_like(M, float("nan"))
+    M_bridge_op = safe_op_norm_symmetric(M_bridge)
+    M_bridge_frob = (
+        float(torch.linalg.matrix_norm(M_bridge, ord="fro").item())
+        if bool(torch.isfinite(M_bridge).all().item())
+        else float("nan")
+    )
+    M_tilde_frob = (
+        float(torch.linalg.matrix_norm(M_tilde, ord="fro").item())
+        if bool(torch.isfinite(M_tilde).all().item())
+        else float("nan")
+    )
+    M_bridge_rel_frob = _safe_ratio(M_bridge_frob, M_tilde_frob)
     resid_sq = r.square()
     resid_mean_sq = float(torch.mean(resid_sq).item())
     resid_max_sq = float(torch.max(resid_sq).item())
@@ -184,6 +198,9 @@ def compute_weighted_metrics(
         "pair_push_op": float(pair_push_op),
         "pair_push_scaled_op": float(pair_push_scaled_op),
         "beta_fit": float(beta_fit),
+        "M_bridge_op": float(M_bridge_op),
+        "M_bridge_frob": float(M_bridge_frob),
+        "M_bridge_rel_frob": float(M_bridge_rel_frob),
         "beta_over_resid_mean_sq": float(beta_over_resid_mean_sq),
         "beta_over_resid_max_sq": float(beta_over_resid_max_sq),
         "beta_rel_mean_sq_error": float(beta_rel_mean_sq_error),
@@ -225,6 +242,14 @@ def compute_weighted_metrics(
             d_eff=d_eff,
             E_stat_op=E_stat_op,
             gamma_tilde_eff_op=gamma_tilde_eff_op,
+            eps_rel=eps_rel,
+        )
+    )
+    metrics.update(
+        compute_pair_spectral_gain_metrics(
+            C=Q.T * r.unsqueeze(0),
+            X=X,
+            d_eff=d_eff,
             eps_rel=eps_rel,
         )
     )

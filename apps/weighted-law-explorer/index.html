@@ -109,6 +109,32 @@
       <div id="beta-diagnostic-cards"></div>
     </section>
 
+    <section class="panel pair-panel">
+      <div>
+        <p class="eyebrow">Pair compression diagnostic</p>
+        <h2>Why worst directions can be harmless</h2>
+        <p>
+          The support-normalized pair defect can be large because it scans every
+          direction in the residual-weighted hidden span. The weighted law only
+          sees directions after stationarity-induced gain has acted on them.
+        </p>
+      </div>
+      <div class="slider-grid">
+        <label for="pair-defect-slider">Worst pair defect</label>
+        <input id="pair-defect-slider" type="range" min="-2" max="4" step="0.05" value="2">
+        <output id="pair-defect-output"></output>
+
+        <label for="pair-gain-slider">Gain on bad direction</label>
+        <input id="pair-gain-slider" type="range" min="-5" max="1" step="0.05" value="-2">
+        <output id="pair-gain-output"></output>
+
+        <label for="gain-corr-slider">Defect-gain correlation</label>
+        <input id="gain-corr-slider" type="range" min="-1" max="1" step="0.01" value="0.05">
+        <output id="gain-corr-output"></output>
+      </div>
+      <div id="pair-diagnostic-cards"></div>
+    </section>
+
     <section class="panel">
       <h2>Family comparison</h2>
       <div class="table-wrap">
@@ -147,6 +173,7 @@
             <li>Theorem bound ratio</li>
             <li>Beta over residual energy</li>
             <li>Pushed pair error</li>
+            <li>Pair gain diagnostics</li>
           </ul>
         </article>
         <article>

@@ -97,6 +97,45 @@ def sample_low_rank_inputs(
     return X, eigvals, basis
 
 
+def sample_clustered_inputs(
+    cfg: ExperimentConfig,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    n_clusters = max(2, cfg.signal_rank)
+    centers = torch.randn(n_clusters, cfg.d, dtype=dtype, device=device) / math.sqrt(cfg.d)
+    assignments = torch.arange(cfg.n, device=device) % n_clusters
+    assignments = assignments[torch.randperm(cfg.n, device=device)]
+    X = centers[assignments] + cfg.signal_noise_std * torch.randn(cfg.n, cfg.d, dtype=dtype, device=device)
+    eigvals = torch.var(X, dim=0, unbiased=False).clamp_min(1e-12)
+    return X, eigvals
+
+
+def sample_mixture_subspace_inputs(
+    cfg: ExperimentConfig,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    n_subspaces = 2
+    rank = max(1, cfg.signal_rank)
+    bases = []
+    for _ in range(n_subspaces):
+        raw = torch.randn(cfg.d, rank, dtype=dtype, device=device)
+        basis, _ = torch.linalg.qr(raw, mode="reduced")
+        bases.append(basis)
+
+    X_parts = []
+    for i in range(cfg.n):
+        basis = bases[i % n_subspaces]
+        coeff = torch.randn(rank, dtype=dtype, device=device) / math.sqrt(rank)
+        noise = cfg.signal_noise_std * torch.randn(cfg.d, dtype=dtype, device=device)
+        X_parts.append(coeff @ basis.T + noise)
+
+    X = torch.stack(X_parts, dim=0)
+    eigvals = torch.var(X, dim=0, unbiased=False).clamp_min(1e-12)
+    return X, eigvals, bases[0]
+
+
 def softplus_hidden(X: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
     return F.softplus(X @ B.T)
 
@@ -122,6 +161,10 @@ def generate_teacher_student_dataset(cfg: ExperimentConfig, dtype: torch.dtype, 
         X, eigvals = sample_inputs(cfg, dtype=dtype, device=device)
     elif cfg.data_family == "low_rank_signal":
         X, eigvals, signal_basis = sample_low_rank_inputs(cfg, dtype=dtype, device=device)
+    elif cfg.data_family == "clustered_gaussian":
+        X, eigvals = sample_clustered_inputs(cfg, dtype=dtype, device=device)
+    elif cfg.data_family == "mixture_subspaces":
+        X, eigvals, signal_basis = sample_mixture_subspace_inputs(cfg, dtype=dtype, device=device)
     else:
         raise ValueError(f"Unsupported data_family {cfg.data_family!r}.")
     B_star, a_star = sample_teacher(cfg, dtype=dtype, device=device, signal_basis=signal_basis)
@@ -337,6 +380,74 @@ def plot_beta_fit_diagnostics(out_dir: Path, cfg: ExperimentConfig, history: Lis
     plt.close()
 
 
+def plot_pair_gain_diagnostics(out_dir: Path, cfg: ExperimentConfig, history: List[Dict[str, float]]) -> None:
+    series = [
+        ("A_pair_op", "support worst direction"),
+        ("pair_top_abs_defect", "top pair defect"),
+        ("pair_top_defect_gain", "gain on top defect"),
+        ("pair_weighted_contribution_max", "max gain-weighted contribution"),
+    ]
+    plt.figure(figsize=(8, 6))
+    plotted = False
+    for key, label in series:
+        steps, values = _finite_positive_series(history, key)
+        if values:
+            plt.plot(steps, values, marker="o", markersize=2, label=label)
+            plotted = True
+    if not plotted:
+        plt.close()
+        return
+    plt.yscale("log")
+    plt.xlabel("training step")
+    plt.ylabel("diagnostic scale")
+    plt.title(f"Pair gain diagnostics: {cfg.name}")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_dir / "pair_gain_diagnostics.png", dpi=180, bbox_inches="tight")
+    plt.close()
+
+
+def plot_phase_diagram(out_dir: Path, cfg: ExperimentConfig, history: List[Dict[str, float]]) -> None:
+    xs = []
+    ys = []
+    colors = []
+    for h in history:
+        beta = h.get("beta_fit", float("nan"))
+        raw_quality = h.get("raw_quality", float("nan"))
+        weighted_quality = h.get("weighted_quality", float("nan"))
+        step = h.get("step", len(xs))
+        if (
+            isinstance(beta, (int, float))
+            and isinstance(raw_quality, (int, float))
+            and isinstance(weighted_quality, (int, float))
+            and math.isfinite(beta)
+            and math.isfinite(raw_quality)
+            and math.isfinite(weighted_quality)
+            and abs(beta) > 0
+            and raw_quality > 0
+            and weighted_quality > 0
+        ):
+            xs.append(abs(float(beta)))
+            ys.append(float(raw_quality / weighted_quality))
+            colors.append(float(step))
+
+    if not xs:
+        return
+
+    plt.figure(figsize=(8, 6))
+    scatter = plt.scatter(xs, ys, c=colors, cmap="viridis", s=35)
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.axhline(1.0, color="black", linewidth=1, alpha=0.4)
+    plt.xlabel("|beta_fit|")
+    plt.ylabel("raw quality / weighted quality")
+    plt.title(f"Two-regime phase diagram: {cfg.name}")
+    plt.colorbar(scatter, label="training step")
+    plt.tight_layout()
+    plt.savefig(out_dir / "phase_diagram.png", dpi=180, bbox_inches="tight")
+    plt.close()
+
+
 def train_one(cfg: ExperimentConfig) -> Dict[str, object]:
     dtype = torch_dtype_from_name(cfg.dtype)
     device = torch.device(cfg.device)
@@ -437,6 +548,8 @@ def train_one(cfg: ExperimentConfig) -> Dict[str, object]:
     save_history(out_dir, cfg, history, best_stationarity, best_weighted, best_raw_conditioning, crossover)
     plot_beta_collapse(out_dir, cfg, history)
     plot_beta_fit_diagnostics(out_dir, cfg, history)
+    plot_pair_gain_diagnostics(out_dir, cfg, history)
+    plot_phase_diagram(out_dir, cfg, history)
     plot_two_regime_trajectory(out_dir, cfg, history)
 
     return {
