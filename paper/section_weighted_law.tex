@@ -38,13 +38,24 @@ Q := [q_1,\ldots,q_n],
 \qquad
 R := \operatorname{diag}(r_1,\ldots,r_n).
 \]
-Since \(\nabla f(x_i)=B^\top q_i\), the residual-weighted AGOP is
+We use the unnormalized hidden-space weighted covariance
+\[
+T:=QR^2Q^\top
+=
+\sum_{i=1}^n r_i^2 q_iq_i^\top
+\]
+and its normalized version
+\[
+\widetilde M:=\frac1n T.
+\]
+Since \(\nabla f(x_i)=B^\top q_i\), the residual-weighted AGOP used in the
+experiments is the normalized matrix
 \[
 \widetilde G
 :=
-B^\top Q R^2 Q^\top B
+B^\top \widetilde M B
 =
-\sum_{i=1}^n r_i^2 \nabla f(x_i)\nabla f(x_i)^\top.
+\frac1n\sum_{i=1}^n r_i^2 \nabla f(x_i)\nabla f(x_i)^\top.
 \]
 
 \subsection{Stationarity identity}
@@ -109,11 +120,11 @@ d_{\mathrm{eff}}
 \qquad
 \kappa_{\mathrm{eff}}
 :=
-\frac{d_{\mathrm{eff}}}{\lambda^2 n^2}.
+\frac{d_{\mathrm{eff}}}{\lambda^2 n}.
 \]
-The resulting hidden-space closure is
+Equivalently, since \(\widetilde M=T/n\), the resulting hidden-space closure is
 \[
-BB^\top \approx \kappa_{\mathrm{eff}} T.
+BB^\top \approx \kappa_{\mathrm{eff}}\widetilde M.
 \]
 Pushing through \(B^\top(\cdot)B\) gives the weighted square law
 \[
