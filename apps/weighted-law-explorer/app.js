@@ -280,12 +280,71 @@ function renderFigure() {
   caption.textContent = figure.caption
 }
 
+function pow10FromSlider(id) {
+  return Math.pow(10, Number(document.getElementById(id).value))
+}
+
+function setOutput(id, value) {
+  document.getElementById(id).textContent = value.toExponential(2)
+}
+
+function simCard(label, value, text) {
+  const template = document.getElementById("simulator-card-template")
+  const card = template.content.firstElementChild.cloneNode(true)
+  card.querySelector(".sim-label").textContent = label
+  card.querySelector(".sim-value").textContent = value
+  card.querySelector(".sim-text").textContent = text
+  return card
+}
+
+function renderSimulator() {
+  const residualEnergy = pow10FromSlider("residual-slider")
+  const stationarityDefect = pow10FromSlider("stationarity-slider")
+  const pushedPairError = pow10FromSlider("pair-slider")
+  const betaFit = residualEnergy
+  const weightedError = stationarityDefect + pushedPairError
+  const rawAmplification = 1 / Math.max(betaFit, 1e-12)
+  const rawSensitivity = weightedError * rawAmplification
+  const regime = betaFit < 1e-3 ? "late weighted regime" : "intermediate raw-conditioned regime"
+
+  setOutput("residual-output", residualEnergy)
+  setOutput("stationarity-output", stationarityDefect)
+  setOutput("pair-output", pushedPairError)
+
+  const target = document.getElementById("simulator-cards")
+  target.innerHTML = ""
+  target.appendChild(simCard(
+    "beta bridge",
+    betaFit.toExponential(2),
+    "In the experiments, beta_fit tracks residual energy."
+  ))
+  target.appendChild(simCard(
+    "weighted residual proxy",
+    weightedError.toExponential(2),
+    "Stationarity defect plus pushed pair error controls the weighted law."
+  ))
+  target.appendChild(simCard(
+    "raw sensitivity proxy",
+    rawSensitivity.toExponential(2),
+    "The raw conversion amplifies weighted-law error by about one over beta."
+  ))
+  target.appendChild(simCard(
+    "regime",
+    regime,
+    "The transition is qualitative, not a theorem threshold."
+  ))
+}
+
 function reset() {
   document.getElementById("family-select").value = "isotropic"
   document.getElementById("metric-select").value = "weightedResidual"
   document.getElementById("figure-select").value = "0"
+  document.getElementById("residual-slider").value = "-3"
+  document.getElementById("stationarity-slider").value = "-4"
+  document.getElementById("pair-slider").value = "-5"
   renderMetricCard()
   renderFigure()
+  renderSimulator()
 }
 
 function bindEvents() {
@@ -293,6 +352,9 @@ function bindEvents() {
   document.getElementById("metric-select").addEventListener("change", renderMetricCard)
   document.getElementById("figure-select").addEventListener("change", renderFigure)
   document.getElementById("reset-button").addEventListener("click", reset)
+  document.getElementById("residual-slider").addEventListener("input", renderSimulator)
+  document.getElementById("stationarity-slider").addEventListener("input", renderSimulator)
+  document.getElementById("pair-slider").addEventListener("input", renderSimulator)
 }
 
 function main() {

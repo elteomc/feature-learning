@@ -195,6 +195,46 @@ p {
   grid-template-columns: repeat(2, minmax(0, 1fr))
 }
 
+.simulator {
+  display: grid
+}
+
+.simulator {
+  gap: 22px
+}
+
+.simulator {
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr)
+}
+
+.slider-grid {
+  align-items: center
+}
+
+.slider-grid {
+  display: grid
+}
+
+.slider-grid {
+  gap: 12px
+}
+
+.slider-grid {
+  grid-template-columns: 150px minmax(160px, 1fr) 90px
+}
+
+input[type="range"] {
+  accent-color: #6f7f12
+}
+
+output {
+  color: #53606c
+}
+
+output {
+  font-variant-numeric: tabular-nums
+}
+
 label {
   font-weight: 800
 }
@@ -234,6 +274,7 @@ button {
 .metric-card,
 .claim-card,
 .bar-card,
+.sim-card,
 .guidance-grid article {
   background: #f8f6f0
 }
@@ -291,6 +332,46 @@ summary {
 
 #metric-bars {
   grid-template-columns: repeat(3, minmax(0, 1fr))
+}
+
+#simulator-cards {
+  display: grid
+}
+
+#simulator-cards {
+  gap: 14px
+}
+
+#simulator-cards {
+  grid-column: 1 / -1
+}
+
+#simulator-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr))
+}
+
+.sim-card {
+  border: 1px solid #e5dfd2
+}
+
+.sim-card {
+  border-radius: 16px
+}
+
+.sim-card {
+  padding: 16px
+}
+
+.sim-value {
+  font-size: 1.6rem
+}
+
+.sim-value {
+  font-weight: 900
+}
+
+.sim-value {
+  margin-bottom: 8px
 }
 
 .bar-header {
@@ -398,8 +479,16 @@ img {
   .hero,
   .split,
   .guidance-grid,
+  .simulator,
+  #simulator-cards,
   #metric-bars,
   .control-grid {
+    grid-template-columns: 1fr
+  }
+}
+
+@media (max-width: 850px) {
+  .slider-grid {
     grid-template-columns: 1fr
   }
 }

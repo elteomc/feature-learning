@@ -57,6 +57,32 @@
       <div id="metric-bars"></div>
     </section>
 
+    <section class="panel simulator">
+      <div>
+        <p class="eyebrow">Interactive model</p>
+        <h2>Two-regime simulator</h2>
+        <p>
+          Move the sliders to see the qualitative mechanism. As residual energy
+          shrinks, the weighted law can remain stable while the raw conversion
+          becomes sensitive because it divides by a small beta bridge.
+        </p>
+      </div>
+      <div class="slider-grid">
+        <label for="residual-slider">Residual energy</label>
+        <input id="residual-slider" type="range" min="-5" max="0" step="0.05" value="-3">
+        <output id="residual-output"></output>
+
+        <label for="stationarity-slider">Stationarity defect</label>
+        <input id="stationarity-slider" type="range" min="-6" max="-1" step="0.05" value="-4">
+        <output id="stationarity-output"></output>
+
+        <label for="pair-slider">Pushed pair error</label>
+        <input id="pair-slider" type="range" min="-7" max="-1" step="0.05" value="-5">
+        <output id="pair-output"></output>
+      </div>
+      <div id="simulator-cards"></div>
+    </section>
+
     <section class="panel">
       <h2>Family comparison</h2>
       <div class="table-wrap">
@@ -128,6 +154,14 @@
         <div class="bar-track">
           <div class="bar-fill"></div>
         </div>
+      </article>
+    </template>
+
+    <template id="simulator-card-template">
+      <article class="sim-card">
+        <p class="eyebrow sim-label"></p>
+        <p class="sim-value"></p>
+        <p class="sim-text"></p>
       </article>
     </template>
 
