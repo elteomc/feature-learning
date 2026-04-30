@@ -302,6 +302,72 @@ $$
 and therefore if \(\max_i |r_i|\to 0\), then
 \(\beta_{\mathrm{fit}}\to 0\).
 
+### Leverage diagnostic
+
+Define hidden-gradient leverage scores
+
+$$
+s_i
+:=
+\sum_{j=1}^n (q_i^\top q_j)^2.
+$$
+
+Then the previous identity can be written as
+
+$$
+\beta_{\mathrm{fit}}
+=
+\frac{\sum_i s_i r_i^2}{\sum_i s_i}.
+$$
+
+Let
+
+$$
+\bar r^2 := \frac1n\sum_i r_i^2,
+\qquad
+\bar s := \frac1n\sum_i s_i.
+$$
+
+If \(\bar r^2>0\) and \(\bar s>0\), then
+
+$$
+\frac{\beta_{\mathrm{fit}}}{\bar r^2}-1
+=
+\frac1n\sum_i
+\left(
+\frac{s_i}{\bar s}-1
+\right)
+\left(
+\frac{r_i^2}{\bar r^2}-1
+\right).
+$$
+
+Therefore
+
+$$
+\left|
+\frac{\beta_{\mathrm{fit}}}{\bar r^2}-1
+\right|
+\le
+\operatorname{CV}(s)\operatorname{CV}(r^2),
+$$
+
+by Cauchy-Schwarz. More exactly, if \(\rho\) denotes the empirical correlation
+between \(s_i\) and \(r_i^2\), then
+
+$$
+\frac{\beta_{\mathrm{fit}}}{\bar r^2}-1
+=
+\rho\,\operatorname{CV}(s)\operatorname{CV}(r^2).
+$$
+
+This gives a deterministic diagnostic for the empirical observation
+\(\beta_{\mathrm{fit}}\approx \bar r^2\). It can happen because the hidden
+leverage scores \(s_i\) are nearly flat, because the squared residuals are nearly
+flat, or because leverage and squared residuals are weakly correlated. Proving
+the last mechanism from training dynamics is the heavier question and is not
+assumed in the diagnostic.
+
 ### Interpretation
 
 The raw-AGOP conversion

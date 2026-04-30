@@ -207,6 +207,18 @@ p {
   grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr)
 }
 
+.beta-panel {
+  display: grid
+}
+
+.beta-panel {
+  gap: 22px
+}
+
+.beta-panel {
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr)
+}
+
 .slider-grid {
   align-items: center
 }
@@ -350,6 +362,22 @@ summary {
   grid-template-columns: repeat(4, minmax(0, 1fr))
 }
 
+#beta-diagnostic-cards {
+  display: grid
+}
+
+#beta-diagnostic-cards {
+  gap: 14px
+}
+
+#beta-diagnostic-cards {
+  grid-column: 1 / -1
+}
+
+#beta-diagnostic-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr))
+}
+
 .sim-card {
   border: 1px solid #e5dfd2
 }
@@ -479,7 +507,9 @@ img {
   .hero,
   .split,
   .guidance-grid,
+  .beta-panel,
   .simulator,
+  #beta-diagnostic-cards,
   #simulator-cards,
   #metric-bars,
   .control-grid {

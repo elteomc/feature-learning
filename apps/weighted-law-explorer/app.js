@@ -288,6 +288,10 @@ function setOutput(id, value) {
   document.getElementById(id).textContent = value.toExponential(2)
 }
 
+function setFixedOutput(id, value) {
+  document.getElementById(id).textContent = value.toFixed(2)
+}
+
 function simCard(label, value, text) {
   const template = document.getElementById("simulator-card-template")
   const card = template.content.firstElementChild.cloneNode(true)
@@ -335,6 +339,41 @@ function renderSimulator() {
   ))
 }
 
+function renderBetaDiagnostic() {
+  const leverageCv = pow10FromSlider("leverage-cv-slider")
+  const residSqCv = pow10FromSlider("resid-cv-slider")
+  const corr = Number(document.getElementById("corr-slider").value)
+  const deterministicBound = leverageCv * residSqCv
+  const signedRelativeError = corr * deterministicBound
+
+  setOutput("leverage-cv-output", leverageCv)
+  setOutput("resid-cv-output", residSqCv)
+  setFixedOutput("corr-output", corr)
+
+  const target = document.getElementById("beta-diagnostic-cards")
+  target.innerHTML = ""
+  target.appendChild(simCard(
+    "deterministic bound",
+    deterministicBound.toExponential(2),
+    "Cauchy-Schwarz gives absolute beta relative error at most CV(s) times CV(r^2)."
+  ))
+  target.appendChild(simCard(
+    "signed error identity",
+    signedRelativeError.toExponential(2),
+    "The exact centered identity is correlation times the two CV factors."
+  ))
+  target.appendChild(simCard(
+    "diagnostic question",
+    Math.abs(signedRelativeError).toExponential(2),
+    "Small values mean beta_fit should track mean residual squared."
+  ))
+  target.appendChild(simCard(
+    "next experiment",
+    "logged per checkpoint",
+    "The branch records leverage CV, residual CV, correlation, beta error, and the CV bound."
+  ))
+}
+
 function reset() {
   document.getElementById("family-select").value = "isotropic"
   document.getElementById("metric-select").value = "weightedResidual"
@@ -342,9 +381,13 @@ function reset() {
   document.getElementById("residual-slider").value = "-3"
   document.getElementById("stationarity-slider").value = "-4"
   document.getElementById("pair-slider").value = "-5"
+  document.getElementById("leverage-cv-slider").value = "-1"
+  document.getElementById("resid-cv-slider").value = "0"
+  document.getElementById("corr-slider").value = "0.05"
   renderMetricCard()
   renderFigure()
   renderSimulator()
+  renderBetaDiagnostic()
 }
 
 function bindEvents() {
@@ -355,6 +398,9 @@ function bindEvents() {
   document.getElementById("residual-slider").addEventListener("input", renderSimulator)
   document.getElementById("stationarity-slider").addEventListener("input", renderSimulator)
   document.getElementById("pair-slider").addEventListener("input", renderSimulator)
+  document.getElementById("leverage-cv-slider").addEventListener("input", renderBetaDiagnostic)
+  document.getElementById("resid-cv-slider").addEventListener("input", renderBetaDiagnostic)
+  document.getElementById("corr-slider").addEventListener("input", renderBetaDiagnostic)
 }
 
 function main() {

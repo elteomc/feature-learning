@@ -83,6 +83,32 @@
       <div id="simulator-cards"></div>
     </section>
 
+    <section class="panel beta-panel">
+      <div>
+        <p class="eyebrow">Beta-fit diagnostic</p>
+        <h2>Why beta tracks mean residual energy</h2>
+        <p>
+          The identity beta_fit equals a hidden-leverage weighted average of
+          squared residuals. This panel separates three deterministic effects:
+          leverage flatness, residual flatness, and their empirical correlation.
+        </p>
+      </div>
+      <div class="slider-grid">
+        <label for="leverage-cv-slider">Leverage CV</label>
+        <input id="leverage-cv-slider" type="range" min="-3" max="1" step="0.05" value="-1">
+        <output id="leverage-cv-output"></output>
+
+        <label for="resid-cv-slider">Residual-squared CV</label>
+        <input id="resid-cv-slider" type="range" min="-3" max="1" step="0.05" value="0">
+        <output id="resid-cv-output"></output>
+
+        <label for="corr-slider">Correlation</label>
+        <input id="corr-slider" type="range" min="-1" max="1" step="0.01" value="0.05">
+        <output id="corr-output"></output>
+      </div>
+      <div id="beta-diagnostic-cards"></div>
+    </section>
+
     <section class="panel">
       <h2>Family comparison</h2>
       <div class="table-wrap">

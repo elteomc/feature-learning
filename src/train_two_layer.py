@@ -302,6 +302,41 @@ def plot_two_regime_trajectory(out_dir: Path, cfg: ExperimentConfig, history: Li
     plt.close()
 
 
+def plot_beta_fit_diagnostics(out_dir: Path, cfg: ExperimentConfig, history: List[Dict[str, float]]) -> None:
+    series = [
+        ("beta_rel_mean_sq_error", "actual beta relative error"),
+        ("beta_cv_bound", "CV leverage times CV residual"),
+        ("leverage_cv", "leverage CV"),
+        ("leverage_resid_sq_corr", "absolute leverage-residual correlation"),
+    ]
+    plt.figure(figsize=(8, 6))
+    plotted = False
+    for key, label in series:
+        steps = []
+        values = []
+        for h in history:
+            value = h.get(key, float("nan"))
+            if key == "leverage_resid_sq_corr" and isinstance(value, (int, float)) and math.isfinite(value):
+                value = abs(value)
+            if isinstance(value, (int, float)) and math.isfinite(value) and value > 0:
+                steps.append(int(h.get("step", len(steps))))
+                values.append(float(value))
+        if values:
+            plt.plot(steps, values, marker="o", markersize=2, label=label)
+            plotted = True
+    if not plotted:
+        plt.close()
+        return
+    plt.yscale("log")
+    plt.xlabel("training step")
+    plt.ylabel("diagnostic scale")
+    plt.title(f"Beta-fit diagnostics: {cfg.name}")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_dir / "beta_fit_diagnostics.png", dpi=180, bbox_inches="tight")
+    plt.close()
+
+
 def train_one(cfg: ExperimentConfig) -> Dict[str, object]:
     dtype = torch_dtype_from_name(cfg.dtype)
     device = torch.device(cfg.device)
@@ -401,6 +436,7 @@ def train_one(cfg: ExperimentConfig) -> Dict[str, object]:
 
     save_history(out_dir, cfg, history, best_stationarity, best_weighted, best_raw_conditioning, crossover)
     plot_beta_collapse(out_dir, cfg, history)
+    plot_beta_fit_diagnostics(out_dir, cfg, history)
     plot_two_regime_trajectory(out_dir, cfg, history)
 
     return {

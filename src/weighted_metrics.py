@@ -41,6 +41,26 @@ def _safe_ratio(numer: float, denom: float, eps: float = 1e-12) -> float:
     return float(numer / denom)
 
 
+def _safe_cv(values: torch.Tensor, mean_value: float, eps: float = 1e-12) -> float:
+    if not math.isfinite(mean_value) or abs(mean_value) <= eps:
+        return float("nan")
+    centered = values - mean_value
+    std = torch.sqrt(torch.mean(centered * centered))
+    return float((std / abs(mean_value)).item())
+
+
+def _safe_corr(x: torch.Tensor, y: torch.Tensor, eps: float = 1e-12) -> float:
+    x_centered = x - torch.mean(x)
+    y_centered = y - torch.mean(y)
+    x_std = torch.sqrt(torch.mean(x_centered * x_centered))
+    y_std = torch.sqrt(torch.mean(y_centered * y_centered))
+    denom = float((x_std * y_std).item())
+    if not math.isfinite(denom) or denom <= eps:
+        return float("nan")
+    numer = torch.mean(x_centered * y_centered)
+    return float((numer / (x_std * y_std)).item())
+
+
 @torch.no_grad()
 def compute_weighted_metrics(
     *,
@@ -94,10 +114,26 @@ def compute_weighted_metrics(
     pair_push_scaled_op = pair_push_op / (lambda_B ** 2 * n ** 2) if math.isfinite(pair_push_op) else float("nan")
 
     beta_fit = best_scalar_fit(M_tilde, M)
-    resid_mean_sq = float(torch.mean(r.square()).item())
-    resid_max_sq = float(torch.max(r.square()).item())
+    resid_sq = r.square()
+    resid_mean_sq = float(torch.mean(resid_sq).item())
+    resid_max_sq = float(torch.max(resid_sq).item())
     beta_over_resid_mean_sq = _safe_ratio(beta_fit, resid_mean_sq)
     beta_over_resid_max_sq = _safe_ratio(beta_fit, resid_max_sq)
+    beta_rel_mean_sq_error = abs(beta_over_resid_mean_sq - 1.0) if math.isfinite(beta_over_resid_mean_sq) else float("nan")
+
+    hidden_kernel_sq = (Q @ Q.T).square()
+    leverage_scores = hidden_kernel_sq.sum(dim=1)
+    leverage_mean = float(torch.mean(leverage_scores).item())
+    leverage_normalized = leverage_scores / leverage_mean if abs(leverage_mean) > 1e-12 else torch.full_like(leverage_scores, float("nan"))
+    leverage_cv = _safe_cv(leverage_normalized, 1.0)
+    resid_sq_cv = _safe_cv(resid_sq, resid_mean_sq)
+    leverage_resid_sq_corr = _safe_corr(leverage_normalized, resid_sq)
+    beta_cv_bound = leverage_cv * resid_sq_cv if math.isfinite(leverage_cv) and math.isfinite(resid_sq_cv) else float("nan")
+    beta_corr_cv_product = (
+        leverage_resid_sq_corr * leverage_cv * resid_sq_cv
+        if math.isfinite(leverage_resid_sq_corr) and math.isfinite(leverage_cv) and math.isfinite(resid_sq_cv)
+        else float("nan")
+    )
 
     c_eff = float("nan")
     gamma_eff_op = float("nan")
@@ -150,6 +186,13 @@ def compute_weighted_metrics(
         "beta_fit": float(beta_fit),
         "beta_over_resid_mean_sq": float(beta_over_resid_mean_sq),
         "beta_over_resid_max_sq": float(beta_over_resid_max_sq),
+        "beta_rel_mean_sq_error": float(beta_rel_mean_sq_error),
+        "leverage_mean": float(leverage_mean),
+        "leverage_cv": float(leverage_cv),
+        "resid_sq_cv": float(resid_sq_cv),
+        "leverage_resid_sq_corr": float(leverage_resid_sq_corr),
+        "beta_cv_bound": float(beta_cv_bound),
+        "beta_corr_cv_product": float(beta_corr_cv_product),
         "c_eff": float(c_eff),
         "gamma_eff_op": float(gamma_eff_op),
         "gamma_eff_rel": float(raw_residual_rel),

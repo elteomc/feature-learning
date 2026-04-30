@@ -79,6 +79,12 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
     return {
         "all_checkpoints": {
             "beta_over_resid_mean_sq": summarize_history_metric(rows, "beta_over_resid_mean_sq"),
+            "beta_rel_mean_sq_error": summarize_history_metric(rows, "beta_rel_mean_sq_error"),
+            "beta_cv_bound": summarize_history_metric(rows, "beta_cv_bound"),
+            "leverage_cv": summarize_history_metric(rows, "leverage_cv"),
+            "resid_sq_cv": summarize_history_metric(rows, "resid_sq_cv"),
+            "leverage_resid_sq_corr_abs": summarize_history_metric_abs(rows, "leverage_resid_sq_corr"),
+            "beta_corr_cv_product": summarize_history_metric(rows, "beta_corr_cv_product"),
             "beta_over_resid_max_sq": summarize_history_metric(rows, "beta_over_resid_max_sq"),
             "theorem_bound_ratio": summarize_history_metric(rows, "theorem_bound_ratio"),
             "gamma_tilde_eff_rel": summarize_history_metric(rows, "gamma_tilde_eff_rel"),
@@ -96,6 +102,12 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
             "theorem_bound_ratio": summarize_metric(rows, "best_metrics_by_stationarity", "theorem_bound_ratio"),
             "delta_stationary_op": summarize_metric(rows, "best_metrics_by_stationarity", "delta_stationary_op"),
             "beta_over_resid_mean_sq": summarize_metric(rows, "best_metrics_by_stationarity", "beta_over_resid_mean_sq"),
+            "beta_rel_mean_sq_error": summarize_metric(rows, "best_metrics_by_stationarity", "beta_rel_mean_sq_error"),
+            "beta_cv_bound": summarize_metric(rows, "best_metrics_by_stationarity", "beta_cv_bound"),
+            "leverage_cv": summarize_metric(rows, "best_metrics_by_stationarity", "leverage_cv"),
+            "resid_sq_cv": summarize_metric(rows, "best_metrics_by_stationarity", "resid_sq_cv"),
+            "leverage_resid_sq_corr": summarize_metric(rows, "best_metrics_by_stationarity", "leverage_resid_sq_corr"),
+            "beta_corr_cv_product": summarize_metric(rows, "best_metrics_by_stationarity", "beta_corr_cv_product"),
             "beta_over_resid_max_sq": summarize_metric(rows, "best_metrics_by_stationarity", "beta_over_resid_max_sq"),
         },
         "best_raw_conditioning": {
@@ -103,6 +115,12 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
             "resid_mean_sq": summarize_metric(rows, "best_metrics_by_raw_conditioning", "resid_mean_sq"),
             "resid_max_sq": summarize_metric(rows, "best_metrics_by_raw_conditioning", "resid_max_sq"),
             "beta_over_resid_mean_sq": summarize_metric(rows, "best_metrics_by_raw_conditioning", "beta_over_resid_mean_sq"),
+            "beta_rel_mean_sq_error": summarize_metric(rows, "best_metrics_by_raw_conditioning", "beta_rel_mean_sq_error"),
+            "beta_cv_bound": summarize_metric(rows, "best_metrics_by_raw_conditioning", "beta_cv_bound"),
+            "leverage_cv": summarize_metric(rows, "best_metrics_by_raw_conditioning", "leverage_cv"),
+            "resid_sq_cv": summarize_metric(rows, "best_metrics_by_raw_conditioning", "resid_sq_cv"),
+            "leverage_resid_sq_corr": summarize_metric(rows, "best_metrics_by_raw_conditioning", "leverage_resid_sq_corr"),
+            "beta_corr_cv_product": summarize_metric(rows, "best_metrics_by_raw_conditioning", "beta_corr_cv_product"),
             "beta_over_resid_max_sq": summarize_metric(rows, "best_metrics_by_raw_conditioning", "beta_over_resid_max_sq"),
             "gamma_eff_op": summarize_metric(rows, "best_metrics_by_raw_conditioning", "gamma_eff_op"),
             "gamma_fit_op": summarize_metric(rows, "best_metrics_by_raw_conditioning", "gamma_fit_op"),
@@ -126,6 +144,26 @@ def summarize_history_metric(rows: List[Dict[str, object]], metric: str) -> Dict
                     value = checkpoint.get(metric)
                     if isinstance(value, (int, float)) and math.isfinite(float(value)):
                         values.append(float(value))
+    if not values:
+        return {"mean": float("nan"), "std": float("nan"), "min": float("nan"), "max": float("nan")}
+    return {
+        "mean": mean(values),
+        "std": pstdev(values) if len(values) > 1 else 0.0,
+        "min": min(values),
+        "max": max(values),
+    }
+
+
+def summarize_history_metric_abs(rows: List[Dict[str, object]], metric: str) -> Dict[str, float]:
+    values = []
+    for row in rows:
+        history = row.get("_history", [])
+        if isinstance(history, list):
+            for checkpoint in history:
+                if isinstance(checkpoint, dict):
+                    value = checkpoint.get(metric)
+                    if isinstance(value, (int, float)) and math.isfinite(float(value)):
+                        values.append(abs(float(value)))
     if not values:
         return {"mean": float("nan"), "std": float("nan"), "min": float("nan"), "max": float("nan")}
     return {
