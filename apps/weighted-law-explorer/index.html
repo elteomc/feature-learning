@@ -6,7 +6,7 @@
   <title>Weighted AGOP Law Explorer</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body data-theme="dark">
   <div class="app-shell">
     <aside class="control-sidebar">
       <div class="sidebar-header">
@@ -39,7 +39,7 @@
       <section class="control-group">
         <h2>Weighted Law</h2>
         <div class="slider-row">
-          <label for="residual-slider" title="Sets beta_fit through the empirical beta bridge">Residual energy</label>
+          <label for="residual-slider" title="Sets beta fit through the empirical beta bridge">Residual energy</label>
           <input id="residual-slider" type="range" min="-5" max="0" step="0.05" value="-3">
           <output id="residual-output"></output>
         </div>
@@ -88,6 +88,7 @@
         </div>
       </section>
 
+      <p class="controls-note" aria-live="polite">These controls apply to Live lab only.</p>
       <button id="reset-button" class="reset-button" type="button">Reset controls</button>
     </aside>
 
@@ -95,7 +96,7 @@
       <header class="hero">
         <div>
           <p class="eyebrow">Main law</p>
-          <p class="formula">H^2 approx kappa_eff G_tilde</p>
+          <p class="formula">H<sup>2</sup> &approx; &kappa;<sub>eff</sub> G&#771;</p>
           <p class="lede">
             The live view is a qualitative control surface for the theorem
             story. The reported view keeps the static paper figures separate.
@@ -128,6 +129,7 @@
         <section class="panel split">
           <div>
             <h2>Sweep Data</h2>
+            <p id="sweep-table-note" class="table-note"></p>
             <div class="table-wrap">
               <table>
                 <thead id="sweep-table-head"></thead>

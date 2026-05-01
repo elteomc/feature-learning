@@ -12,6 +12,10 @@
   --navy: #2d4054;
   --rust: #b75c34;
   --shadow: 0 18px 50px rgb(23 32 42 / 12%);
+  /* series palette — light defaults */
+  --series-a: #6f7f12;
+  --series-b: #b75c34;
+  --series-c: #2d5080;
 }
 
 body[data-theme="dark"] {
@@ -23,11 +27,15 @@ body[data-theme="dark"] {
   --line: #344456;
   --line-strong: #536579;
   --olive: #d7f25b;
-  --olive-bright: #d7f25b;
+  --olive-bright: #a9bd63;
   --navy: #1f3144;
   --rust: #f2a16f;
   --shadow: 0 18px 50px rgb(0 0 0 / 34%);
   color-scheme: dark;
+  /* series palette — dark: brighter so lines read against the dark plot frame */
+  --series-a: #d7f25b;
+  --series-b: #f2a16f;
+  --series-c: #5a96c8;
 }
 
 body[data-theme="light"] {
@@ -152,8 +160,45 @@ th {
   margin: 12px 0 6px;
 }
 
+/* keep sidebar inputs dark regardless of page theme */
+.control-sidebar select,
+.control-sidebar input[type="number"] {
+  background: rgb(255 255 255 / 10%);
+  color: white;
+  border-color: rgb(255 255 255 / 22%);
+}
+
+.control-sidebar select option {
+  background: #24364a;
+  color: white;
+}
+
 .sidebar-header {
   margin-bottom: 18px;
+}
+
+.controls-note {
+  display: none;
+  margin: 10px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 8%);
+  color: rgb(255 255 255 / 60%);
+  font-size: 0.84rem;
+}
+
+.control-sidebar[data-active-view="reported"] .controls-note {
+  display: block;
+}
+
+.control-sidebar[data-active-view="reported"] .control-group {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+.control-sidebar[data-active-view="reported"] .reset-button {
+  opacity: 0.38;
+  pointer-events: none;
 }
 
 .view-toggle {
@@ -174,6 +219,11 @@ th {
 .view-button.active {
   background: var(--olive-bright);
   color: var(--ink);
+}
+
+body[data-theme="dark"] .view-button.active {
+  background: #435469;
+  color: #edf2f7;
 }
 
 .reset-button {
@@ -258,6 +308,11 @@ th {
   color: #d7f25b;
 }
 
+body[data-theme="dark"] .hero .eyebrow,
+body[data-theme="dark"] .control-sidebar .eyebrow {
+  color: #a9bd63;
+}
+
 .formula {
   margin-bottom: 10px;
   font-family: Georgia, serif;
@@ -294,11 +349,12 @@ th {
   font-size: 0.92rem;
 }
 
-.legend i {
+.legend-swatch {
   display: inline-block;
   width: 12px;
   height: 12px;
   border-radius: 999px;
+  flex-shrink: 0;
 }
 
 .plot-panel {
@@ -363,6 +419,20 @@ figcaption {
   overflow-x: auto;
 }
 
+.table-note {
+  margin-bottom: 12px;
+  color: var(--muted);
+}
+
+.current-row {
+  background: color-mix(in srgb, var(--olive) 16%, transparent);
+}
+
+.math {
+  font-family: Georgia, serif;
+  white-space: nowrap;
+}
+
 .reported-panel {
   display: grid;
   grid-template-columns: minmax(260px, 0.55fr) minmax(0, 1fr);
@@ -372,6 +442,7 @@ figcaption {
 
 figure {
   margin: 0;
+  min-height: 180px;
 }
 
 img {
@@ -397,6 +468,12 @@ figcaption {
 
 [hidden] {
   display: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
 @media (max-width: 1080px) {

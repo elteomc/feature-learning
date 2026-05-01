@@ -46,16 +46,18 @@ const sweeps = {
     title: "Test of raw sensitivity versus residual energy",
     description: "The x-axis is centered on the Residual energy slider. Stationarity defect, pair defect, bad-direction gain, and beta correlation controls move the curves.",
     xLabel: "residual energy",
+    logScale: true,
+    tableNote: "Each row is a hypothetical checkpoint at a different residual energy. Stationarity defect and pair compression are held fixed, so raw sensitivity varies purely because beta fit scales with residual energy.",
     series: [
-      { key: "weightedError", label: "weighted proxy", color: "#6f7f12" },
-      { key: "rawSensitivity", label: "raw sensitivity", color: "#b75c34" }
+      { key: "weightedError", label: "weighted proxy", cssVar: "--series-a" },
+      { key: "rawSensitivity", label: "raw sensitivity", cssVar: "--series-b" }
     ],
     columns: [
       ["residualEnergy", "residual energy"],
-      ["betaFit", "beta_fit"],
-      ["weightedError", "weighted proxy"],
+      ["betaFit", "beta fit"],
       ["rawSensitivity", "raw sensitivity"],
-      ["regime", "regime"]
+      ["regime", "regime"],
+      ["isCurrent", "selected"]
     ]
   },
   beta: {
@@ -63,16 +65,17 @@ const sweeps = {
     title: "Beta identity sweep",
     description: "The x-axis is centered on the Correlation slider. Leverage CV and Residual CV change the height of the beta-error curves.",
     xLabel: "correlation",
+    logScale: false,
+    tableNote: "Each row is a possible leverage-residual correlation. Leverage CV and residual CV are fixed by the sidebar, so the table focuses on the beta error implied by changing correlation.",
     series: [
-      { key: "signedBetaError", label: "signed beta error", color: "#6f7f12" },
-      { key: "absoluteBetaError", label: "absolute beta error", color: "#2d4054" }
+      { key: "signedBetaError", label: "signed beta error", cssVar: "--series-a" },
+      { key: "absoluteBetaError", label: "absolute beta error", cssVar: "--series-c" }
     ],
     columns: [
       ["corr", "correlation"],
-      ["leverageCv", "leverage CV"],
-      ["residSqCv", "residual CV"],
       ["signedBetaError", "signed error"],
-      ["absoluteBetaError", "absolute error"]
+      ["absoluteBetaError", "absolute error"],
+      ["isCurrent", "selected"]
     ]
   },
   pair: {
@@ -80,16 +83,18 @@ const sweeps = {
     title: "Pair defect versus stationarity gain",
     description: "The x-axis is centered on the Bad-direction gain slider. Pair defect and defect-gain correlation change the risk scale.",
     xLabel: "bad-direction gain",
+    logScale: true,
+    tableNote: "Each row changes the stationarity gain on a bad pair direction. The pair defect is held fixed so the table shows how gain turns a worst-direction defect into actual risk.",
     series: [
-      { key: "supportDefect", label: "support defect", color: "#2d4054" },
-      { key: "gainWeightedContribution", label: "gain-weighted contribution", color: "#b75c34" }
+      { key: "supportDefect", label: "support defect", cssVar: "--series-c" },
+      { key: "gainWeightedContribution", label: "gain-weighted contribution", cssVar: "--series-b" }
     ],
     columns: [
       ["gain", "gain"],
-      ["supportDefect", "pair defect"],
-      ["gainWeightedContribution", "defect times gain^2"],
+      ["gainWeightedContribution", "defect times gain squared"],
       ["diagnosticRisk", "diagnostic risk"],
-      ["warning", "warning"]
+      ["warning", "warning"],
+      ["isCurrent", "selected"]
     ]
   }
 }
@@ -101,69 +106,73 @@ const reportedFigures = [
     label: "Weighted residual by family",
     file: "weighted_residual_by_family.png",
     caption: "Weighted-law residual at best-stationarity checkpoints.",
-    detail: "This is the most direct evidence plot for the late-training law. Lower bars mean the learned feature matrix satisfies H^2 approx kappa_eff G_tilde more closely at the best-stationarity checkpoint."
+    detailHtml: "This is the most direct evidence plot for the late-training law. Lower bars mean the learned feature matrix satisfies <span class=\"math\">H<sup>2</sup> &approx; &kappa;<sub>eff</sub> G&#771;</span> more closely at the best-stationarity checkpoint."
   },
   {
     label: "Theorem bound ratio by family",
     file: "theorem_bound_ratio_by_family.png",
     caption: "Observed weighted residual divided by the deterministic bound.",
-    detail: "The deterministic theorem gives an upper-bound template involving pair error and stationarity defect. Values below one mean the observed residual is covered by that bound. The bound is expected to be conservative."
+    detailHtml: "The deterministic theorem gives an upper-bound template involving pair error and stationarity defect. Values below one mean the observed residual is covered by that bound. The bound is expected to be conservative."
   },
   {
     label: "Beta over residual energy",
     file: "beta_over_residual_energy_by_family.png",
-    caption: "Beta_fit tracks mean residual squared across all checkpoints.",
-    detail: "The beta bridge says beta_fit is a leverage-weighted residual average. Values near one mean that hidden-gradient leverage is not strongly biasing the residual average away from ordinary mean residual energy."
+    caption: "Beta fit tracks mean residual squared across all checkpoints.",
+    detailHtml: "The beta bridge says <span class=\"math\">&beta;<sub>fit</sub></span> is a leverage-weighted residual average. Values near one mean that hidden-gradient leverage is not strongly biasing the residual average away from ordinary mean residual energy."
   },
   {
     label: "Pushed pair error",
     file: "pushed_pair_error_by_family.png",
     caption: "Pair error after pushing through the learned feature map.",
-    detail: "This plot is about the pair error that actually enters the weighted law. It can be small even when the support-normalized A_pair diagnostic is large."
+    detailHtml: "This plot is about the pair error that actually enters the weighted law. It can be small even when the support-normalized <span class=\"math\">A<sub>pair</sub></span> diagnostic is large."
   },
   {
     label: "Symmetric relative error",
     file: "symmetric_relative_error_by_family.png",
     caption: "Secondary relative weighted-law diagnostic.",
-    detail: "This is a scale-normalized version of the weighted-law residual. It is useful for honest reporting, but it is not the central theorem diagnostic."
+    detailHtml: "This is a scale-normalized version of the weighted-law residual. It is useful for honest reporting, but it is not the central theorem diagnostic."
   },
   {
     label: "Isotropic trajectory",
     file: "isotropic_two_regime_trajectory.png",
     caption: "Two-regime trajectory for isotropic seed 0.",
-    detail: "This trajectory shows how the raw-conditioned relation and the weighted relation appear at different phases of training in the baseline isotropic family."
+    detailHtml: "This trajectory shows how the raw-conditioned relation and the weighted relation appear at different phases of training in the baseline isotropic family."
   },
   {
     label: "Anisotropic trajectory",
     file: "anisotropic_two_regime_trajectory.png",
     caption: "Two-regime trajectory for anisotropic seed 0.",
-    detail: "This checks the same two-regime story when the input covariance has a nontrivial spectrum, where the effective-dimension correction matters."
+    detailHtml: "This checks the same two-regime story when the input covariance has a nontrivial spectrum, where the effective-dimension correction matters."
   },
   {
     label: "Low-rank trajectory",
     file: "low_rank_signal_two_regime_trajectory.png",
     caption: "Two-regime trajectory for low-rank signal seed 0.",
-    detail: "This checks the trajectory story in a structured signal family rather than pure Gaussian noise."
+    detailHtml: "This checks the trajectory story in a structured signal family rather than pure Gaussian noise."
   },
   {
     label: "Isotropic beta collapse",
     file: "isotropic_beta_collapse.png",
     caption: "Beta collapse for the isotropic representative run.",
-    detail: "This shows beta_fit shrinking as interpolation is approached. That collapse explains why converting the weighted law into a raw AGOP law becomes numerically delicate late in training."
+    detailHtml: "This shows <span class=\"math\">&beta;<sub>fit</sub></span> shrinking as interpolation is approached. That collapse explains why converting the weighted law into a raw AGOP law becomes numerically delicate late in training."
   },
   {
     label: "Anisotropic beta collapse",
     file: "anisotropic_beta_collapse.png",
     caption: "Beta collapse for the anisotropic representative run.",
-    detail: "This checks whether the beta-collapse mechanism remains visible under anisotropic input geometry."
+    detailHtml: "This checks whether the beta-collapse mechanism remains visible under anisotropic input geometry."
   },
   {
     label: "Low-rank beta collapse",
     file: "low_rank_signal_beta_collapse.png",
     caption: "Beta collapse for the low-rank representative run.",
-    detail: "This checks whether the beta bridge remains interpretable when the signal lives mostly in a low-dimensional subspace."
+    detailHtml: "This checks whether the beta bridge remains interpretable when the signal lives mostly in a low-dimensional subspace."
   }
 ]
+
+function resolveColor(cssVar) {
+  return getComputedStyle(document.body).getPropertyValue(cssVar).trim()
+}
 
 function option(value, label) {
   const item = document.createElement("option")
@@ -214,7 +223,7 @@ function seededMultiplier(seed, familyKey) {
 function currentState() {
   const familyKey = document.getElementById("family-select").value
   const family = families[familyKey]
-  const seed = numberValue("seed-input")
+  const seed = Math.max(0, Math.min(99, Math.round(numberValue("seed-input"))))
   const seedScale = seededMultiplier(seed, familyKey)
   const familyWeightedScale = family.weightedResidual / families.isotropic.weightedResidual
   const familyPairScale = family.pushedPair / families.isotropic.pushedPair
@@ -267,7 +276,8 @@ function buildRegimeRows(state) {
       betaFit,
       weightedError: state.weightedError,
       rawSensitivity,
-      regime: betaFit < 1e-3 ? "late weighted" : "raw-conditioned"
+      regime: betaFit < 1e-3 ? "late weighted" : "raw-conditioned",
+      isCurrent: i === 5 ? "current" : ""
     })
   }
   return rows
@@ -275,8 +285,11 @@ function buildRegimeRows(state) {
 
 function buildBetaRows(state) {
   const rows = []
-  const start = Math.max(-1, state.corr - 1)
-  const end = Math.min(1, state.corr + 1)
+  // Use the largest symmetric window around state.corr that still fits in [-1, 1].
+  // This guarantees that i === 5 (the midpoint) lands exactly on state.corr.
+  const half = Math.min(1 + state.corr, 1 - state.corr)
+  const start = state.corr - half
+  const end = state.corr + half
   for (let i = 0; i <= 10; i += 1) {
     const corr = start + (end - start) * i / 10
     const signedBetaError = corr * state.leverageCv * state.residSqCv
@@ -286,7 +299,8 @@ function buildBetaRows(state) {
       leverageCv: state.leverageCv,
       residSqCv: state.residSqCv,
       signedBetaError,
-      absoluteBetaError: Math.abs(signedBetaError)
+      absoluteBetaError: Math.abs(signedBetaError),
+      isCurrent: i === 5 ? "current" : ""
     })
   }
   return rows
@@ -306,7 +320,8 @@ function buildPairRows(state) {
       supportDefect: state.pairDefect,
       gainWeightedContribution,
       diagnosticRisk,
-      warning: diagnosticRisk > 1 ? "watch" : "harmless"
+      warning: diagnosticRisk > 1 ? "watch" : "harmless",
+      isCurrent: i === 5 ? "current" : ""
     })
   }
   return rows
@@ -407,114 +422,109 @@ function renderPlot(rows, sweep) {
   const bottom = 56
   const plotWidth = width - left - right
   const plotHeight = height - top - bottom
-  const useLogX = sweep.xLabel !== "correlation"
-  const useLogY = sweep.xLabel !== "correlation"
+
+  // Use the explicit logScale flag from the sweep config (improvement B).
+  const useLog = sweep.logScale
+
   const xValues = rows.map((row) => row.x)
-  const yValues = sweep.series.flatMap((series) => rows.map((row) => useLogY ? Math.abs(row[series.key]) : row[series.key]))
-  const xScale = plotScale(xValues, left, left + plotWidth, useLogX)
-  const yScaleRaw = plotScale(yValues, 0, plotHeight, useLogY)
+  const yValues = sweep.series.flatMap((series) =>
+    rows.map((row) => useLog ? Math.abs(row[series.key]) : row[series.key])
+  )
+
+  const xScale = plotScale(xValues, left, left + plotWidth, useLog)
+  const yScaleRaw = plotScale(yValues, 0, plotHeight, useLog)
   const yScale = (value) => {
-    const plotted = useLogY ? Math.abs(value) : value
+    const plotted = useLog ? Math.abs(value) : value
     return top + plotHeight - yScaleRaw(plotted)
   }
 
+  // Plot frame
   svg.appendChild(svgElement("rect", {
-    x: left,
-    y: top,
-    width: plotWidth,
-    height: plotHeight,
-    rx: 14,
-    class: "plot-frame"
+    x: left, y: top, width: plotWidth, height: plotHeight, rx: 14, class: "plot-frame"
   }))
 
-  for (let i = 0; i <= 4; i += 1) {
-    const y = top + i * plotHeight / 4
-    svg.appendChild(svgElement("line", {
-      x1: left,
-      x2: left + plotWidth,
-      y1: y,
-      y2: y,
-      "stroke-width": 1,
-      class: "grid-line"
-    }))
-  }
-
-  tickValues(yValues, 5, useLogY).forEach((tick) => {
+  // Grid lines and y-axis labels share the same tick positions so they align (bug 3).
+  const yTicks = tickValues(yValues, 5, useLog)
+  yTicks.forEach((tick) => {
     const y = yScale(tick)
-    const tickLabel = svgElement("text", {
-      x: left - 12,
-      y: y + 4,
-      "text-anchor": "end",
-      fill: "currentColor",
-      "font-size": 12,
-      class: "axis-label"
+    svg.appendChild(svgElement("line", {
+      x1: left, x2: left + plotWidth, y1: y, y2: y,
+      "stroke-width": 1, class: "grid-line"
+    }))
+    const label = svgElement("text", {
+      x: left - 12, y: y + 4,
+      "text-anchor": "end", fill: "currentColor", "font-size": 12, class: "axis-label"
     })
-    tickLabel.textContent = formatCompact(tick)
-    svg.appendChild(tickLabel)
+    label.textContent = formatCompact(tick)
+    svg.appendChild(label)
   })
 
-  tickValues(xValues, 5, useLogX).forEach((tick) => {
+  // X-axis ticks and labels
+  tickValues(xValues, 5, useLog).forEach((tick) => {
     const x = xScale(tick)
     svg.appendChild(svgElement("line", {
-      x1: x,
-      x2: x,
-      y1: top + plotHeight,
-      y2: top + plotHeight + 6,
-      stroke: "currentColor",
-      "stroke-width": 1,
-      class: "axis-tick"
+      x1: x, x2: x, y1: top + plotHeight, y2: top + plotHeight + 6,
+      stroke: "currentColor", "stroke-width": 1, class: "axis-tick"
     }))
-    const tickLabel = svgElement("text", {
-      x,
-      y: top + plotHeight + 23,
-      "text-anchor": "middle",
-      fill: "currentColor",
-      "font-size": 12,
-      class: "axis-label"
+    const label = svgElement("text", {
+      x, y: top + plotHeight + 23,
+      "text-anchor": "middle", fill: "currentColor", "font-size": 12, class: "axis-label"
     })
-    tickLabel.textContent = formatCompact(tick)
-    svg.appendChild(tickLabel)
+    label.textContent = formatCompact(tick)
+    svg.appendChild(label)
   })
 
+  // Lines — draw all series first so dots always sit on top
   sweep.series.forEach((series) => {
+    const color = resolveColor(series.cssVar)
     svg.appendChild(svgElement("path", {
       d: linePath(rows, series.key, xScale, yScale),
-      fill: "none",
-      stroke: series.color,
-      "stroke-width": 4,
-      "stroke-linecap": "round",
-      "stroke-linejoin": "round"
+      fill: "none", stroke: color, "stroke-width": 4,
+      "stroke-linecap": "round", "stroke-linejoin": "round"
     }))
+  })
 
-    rows.forEach((row) => {
+  // Non-current dots
+  const panelColor = resolveColor("--panel")
+  sweep.series.forEach((series) => {
+    const color = resolveColor(series.cssVar)
+    rows.filter((row) => !row.isCurrent).forEach((row) => {
       svg.appendChild(svgElement("circle", {
-        cx: xScale(row.x),
-        cy: yScale(row[series.key]),
-        r: 4,
-        fill: series.color
+        cx: xScale(row.x), cy: yScale(row[series.key]), r: 4, fill: color
       }))
     })
   })
 
+  // Current dots drawn last so they appear on top of every line and dot (improvement A).
+  sweep.series.forEach((series) => {
+    const color = resolveColor(series.cssVar)
+    rows.filter((row) => row.isCurrent).forEach((row) => {
+      svg.appendChild(svgElement("circle", {
+        cx: xScale(row.x), cy: yScale(row[series.key]),
+        r: 7, fill: color, stroke: panelColor, "stroke-width": 2.5
+      }))
+    })
+  })
+
+  // X-axis label
   const xLabel = svgElement("text", {
-    x: left + plotWidth / 2,
-    y: height - 16,
-    "text-anchor": "middle",
-    fill: "currentColor",
-    "font-size": 14
+    x: left + plotWidth / 2, y: height - 16,
+    "text-anchor": "middle", fill: "currentColor", "font-size": 14
   })
   xLabel.textContent = sweep.xLabel
   svg.appendChild(xLabel)
 
+  // Y-axis label built from the series names so it names what is plotted (improvement C).
+  const yLabelText = sweep.series.map((s) => s.label).join(" · ")
   const yLabel = svgElement("text", {
-    x: 18,
+    x: 14,
     y: top + plotHeight / 2,
     "text-anchor": "middle",
     fill: "currentColor",
-    "font-size": 14,
-    transform: "rotate(-90 18 " + (top + plotHeight / 2) + ")"
+    "font-size": 11,
+    transform: "rotate(-90 14 " + (top + plotHeight / 2) + ")"
   })
-  yLabel.textContent = useLogY ? "log scale" : "signed value"
+  yLabel.textContent = yLabelText
   svg.appendChild(yLabel)
 }
 
@@ -523,8 +533,9 @@ function renderLegend(sweep) {
   legend.innerHTML = ""
   sweep.series.forEach((series) => {
     const item = document.createElement("span")
-    const swatch = document.createElement("i")
-    swatch.style.background = series.color
+    const swatch = document.createElement("span")
+    swatch.className = "legend-swatch"
+    swatch.style.background = "var(" + series.cssVar + ")"
     item.appendChild(swatch)
     item.append(series.label)
     legend.appendChild(item)
@@ -534,8 +545,10 @@ function renderLegend(sweep) {
 function renderTable(rows, sweep) {
   const head = document.getElementById("sweep-table-head")
   const body = document.getElementById("sweep-table-body")
+  const note = document.getElementById("sweep-table-note")
   head.innerHTML = ""
   body.innerHTML = ""
+  note.textContent = sweep.tableNote
 
   const headerRow = document.createElement("tr")
   sweep.columns.forEach(([, label]) => {
@@ -547,6 +560,9 @@ function renderTable(rows, sweep) {
 
   rows.forEach((row) => {
     const tableRow = document.createElement("tr")
+    if (row.isCurrent) {
+      tableRow.classList.add("current-row")
+    }
     sweep.columns.forEach(([key]) => {
       const cell = document.createElement("td")
       cell.textContent = typeof row[key] === "number" ? formatCompact(row[key]) : row[key]
@@ -571,7 +587,7 @@ function renderInsights(state) {
   target.appendChild(insightCard(
     "beta bridge",
     formatSci(state.betaFit),
-    "The live model ties beta_fit to residual energy, matching the empirical bridge."
+    "The live model ties beta fit to residual energy, matching the empirical bridge."
   ))
   target.appendChild(insightCard(
     "weighted proxy",
@@ -648,11 +664,12 @@ function renderReportedFigure() {
   const image = document.getElementById("figure-image")
   const caption = document.getElementById("figure-caption")
   const detail = document.getElementById("figure-detail")
+  image.alt = figure.caption
   image.src = figureBase + figure.file
   caption.textContent = figure.caption
-  detail.textContent = figure.detail
+  detail.innerHTML = figure.detailHtml
   image.onerror = () => {
-    caption.textContent = "This tracked figure is not available from the current relative path: " + figure.file
+    caption.textContent = "Figure not found at the current relative path: " + figure.file
   }
 }
 
@@ -666,13 +683,13 @@ function setTheme(theme) {
 function toggleTheme() {
   const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark"
   setTheme(nextTheme)
+  renderLive()
 }
 
 function setView(view) {
-  const liveView = document.getElementById("live-view")
-  const reportedView = document.getElementById("reported-view")
-  liveView.hidden = view !== "live"
-  reportedView.hidden = view !== "reported"
+  document.getElementById("live-view").hidden = view !== "live"
+  document.getElementById("reported-view").hidden = view !== "reported"
+  document.querySelector(".control-sidebar").dataset.activeView = view
 
   document.querySelectorAll(".view-button").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === view)
@@ -717,7 +734,6 @@ function reset() {
 function bindEvents() {
   [
     "family-select",
-    "seed-input",
     "sweep-select",
     "residual-slider",
     "stationarity-slider",
@@ -731,6 +747,14 @@ function bindEvents() {
     const control = document.getElementById(id)
     control.addEventListener("input", renderLive)
     control.addEventListener("change", renderLive)
+  })
+
+  // Seed gets its own handler so we can clamp the displayed value on commit (improvement F).
+  const seedInput = document.getElementById("seed-input")
+  seedInput.addEventListener("input", renderLive)
+  seedInput.addEventListener("change", () => {
+    seedInput.value = Math.max(0, Math.min(99, Math.round(Number(seedInput.value) || 0)))
+    renderLive()
   })
 
   document.getElementById("figure-select").addEventListener("change", renderReportedFigure)
