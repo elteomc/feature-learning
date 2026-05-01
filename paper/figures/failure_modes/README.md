@@ -33,10 +33,16 @@ trained-network scatter plot.
 
 The point of these figures is to separate distinct failure mechanisms:
 
-1. beta bridge failure from leverage-residual coupling;
-2. weighted-law failure from high-gain pair defects;
-3. raw-law failure from beta collapse.
+1. beta bridge failure from leverage-residual coupling
+2. weighted-law failure from high-gain pair defects
+3. raw-law failure from beta collapse
 
 The next step is to compare these toy regimes against trained synthetic families
 such as rare-region outliers, two-region gating, clustered Gaussians, and
 mixtures of subspaces.
+
+## Demo Status
+
+These failure-mode figures are ready for a future `Failure modes` view in the
+demo after the taxonomy is reviewed. The current branch does not modify the demo
+because the live dashboard work is maintained separately on `demo-live`.
