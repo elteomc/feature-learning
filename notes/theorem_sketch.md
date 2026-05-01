@@ -717,9 +717,9 @@ The positive weighted-law and beta-bridge statements do not imply a universal
 raw AGOP law. The separate taxonomy in `notes/failure_modes.md` records the
 algebraic ways the bridges can fail:
 
-1. beta failure through leverage-residual covariance;
-2. pair failure through high-gain pair defects;
-3. raw-law conditioning failure when beta collapses.
+1. beta failure through leverage-residual covariance
+2. pair failure through high-gain pair defects
+3. raw-law conditioning failure when beta collapses
 
 That note also includes finite-dimensional counterexamples and a regime table.
 Claims about trained nonlinear networks remain empirical or conditional unless a
