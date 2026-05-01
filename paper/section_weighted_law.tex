@@ -141,6 +141,64 @@ reason we also monitor the pushed-forward pair error
 \]
 which is closer to the error entering the final weighted law.
 
+\subsection{High-gain pair closure}
+
+The pushed diagnostic has an exact stationarity-coordinate form. Let
+\[
+A=QR=U\Sigma V^\top
+\]
+be the thin SVD of \(A\), and define
+\[
+H_X:=V^\top X^\top X V,
+\qquad
+F_X:=H_X-d_{\mathrm{eff}}I.
+\]
+Then
+\[
+T=U\Sigma^2U^\top,
+\qquad
+S-d_{\mathrm{eff}}T=U\Sigma F_X\Sigma U^\top.
+\]
+At exact \(B\)-stationarity,
+\[
+B=-\frac1{\lambda n}U\Sigma V^\top X^\top.
+\]
+Therefore
+\[
+B^\top(S-d_{\mathrm{eff}}T)B
+=
+\frac1{\lambda^2n^2}
+G_{\mathrm{stat}}^\top F_XG_{\mathrm{stat}},
+\qquad
+G_{\mathrm{stat}}:=\Sigma^2V^\top X^\top.
+\]
+Thus the weighted law does not require \(F_X\) to be small on all of
+\(\operatorname{range}(T)\). It only requires scalar closure on directions with
+large stationarity-induced gain.
+
+More precisely, let \(P_{\mathrm{hi}}\) be an orthogonal projector in
+\(\mathbb R^r\). If
+\[
+\|P_{\mathrm{hi}}F_XP_{\mathrm{hi}}\|_{\mathrm{op}}\le \varepsilon,
+\qquad
+\|(I-P_{\mathrm{hi}})G_{\mathrm{stat}}\|_{\mathrm{op}}\le \delta,
+\]
+then
+\[
+\|B^\top(S-d_{\mathrm{eff}}T)B\|_{\mathrm{op}}
+\le
+\frac1{\lambda^2n^2}
+\left[
+\varepsilon\|G_{\mathrm{stat}}\|_{\mathrm{op}}^2
++
+2\mathcal A_{\mathrm{pair}}\|G_{\mathrm{stat}}\|_{\mathrm{op}}\delta
++
+\mathcal A_{\mathrm{pair}}\delta^2
+\right].
+\]
+This is the high-gain version of pair closure tested by the spectral-gain
+diagnostics.
+
 \subsection{Deterministic weighted law}
 
 Let
@@ -214,6 +272,63 @@ residuals. In particular,
 As the model approaches interpolation, \(\beta_{\mathrm{fit}}\to 0\). Converting
 the weighted law into a raw AGOP law then requires division by a small scalar,
 which makes the raw relation ill-conditioned late in training.
+
+The same identity gives a sharper beta diagnostic. Define
+\[
+s_i:=\sum_{j=1}^n(q_i^\top q_j)^2,
+\qquad
+\ell_i:=\frac{s_i}{\frac1n\sum_k s_k},
+\qquad
+\bar r^2:=\frac1n\sum_i r_i^2.
+\]
+Then
+\[
+\frac1n\sum_i\ell_i=1,
+\qquad
+\beta_{\mathrm{fit}}=\frac1n\sum_i\ell_i r_i^2,
+\]
+and, when the empirical variances are nonzero,
+\[
+\frac{\beta_{\mathrm{fit}}}{\bar r^2}-1
+=
+\operatorname{Corr}_n(\ell,r^2)
+\operatorname{CV}_n(\ell)
+\operatorname{CV}_n(r^2).
+\]
+Thus beta tracks mean residual energy when hidden-gradient leverage and squared
+residuals have small normalized covariance.
+
+There are clean conditional sufficient conditions for this decorrelation. If,
+conditional on the hidden-gradient geometry,
+\[
+\mathbb E[r_i^2\mid q_1,\ldots,q_n]=\mu
+\qquad
+\text{for all }i,
+\]
+then
+\[
+\mathbb E[\beta_{\mathrm{fit}}\mid q_1,\ldots,q_n]
+=
+\mathbb E[\bar r^2\mid q_1,\ldots,q_n].
+\]
+In population form, a sufficient condition is
+\[
+\operatorname{Cov}(r(X)^2,h(X))=0,
+\qquad
+h(x):=\mathbb E_{X'}[(q(x)^\top q(X'))^2].
+\]
+
+One possible dynamics explanation is leverage-sensitive damping. In the
+simplified model
+\[
+\dot r_i(t)=-(\eta_0+\alpha(\ell_i-1))r_i(t),
+\qquad
+\alpha>0,
+\]
+positive covariance between \(\ell_i\) and \(r_i(t)^2\) is suppressed. For the
+full two-layer network this remains a bridge assumption, because the residual
+dynamics are governed by the NTK and the leverage scores also move during
+training.
 
 \subsection{Empirical summary}
 

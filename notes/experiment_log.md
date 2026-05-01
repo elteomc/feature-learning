@@ -94,3 +94,38 @@ The current final figure candidates are:
 4. optional matrix visualization for `H^2` and scaled weighted AGOP
 
 The first three are enough for the project narrative.
+
+## Fragment one diagnostics
+
+A fast smoke run now covers the original families plus the structured and
+failure-mode families:
+
+1. isotropic Gaussian inputs
+2. anisotropic Gaussian inputs
+3. low-rank signal plus isotropic noise
+4. clustered Gaussian inputs
+5. mixture of subspaces
+6. rare-region outliers
+7. two-region gating
+8. XOR-style feature task
+
+The smoke command was:
+
+```text
+python -m experiments.run_pair_isotropy --seeds 0 --fast --include-low-rank --include-structured --include-failure-modes --output-root results/tmp/smoke_fragment1
+```
+
+The companion figure command was:
+
+```text
+python -m experiments.make_final_figures --results-dir results/tmp/smoke_fragment1 --outdir results/tmp/smoke_fragment1_figures
+```
+
+This generated ten per-run plots, including beta decomposition, pair
+defect-versus-gain, cumulative pair contributions, high-gain closure, residual
+damping versus leverage, phase diagram, and the existing beta and trajectory
+plots. The final smoke figure folder contained 92 PNG files.
+
+These runs are smoke tests, not final reported numbers. Their purpose is to
+verify that the new diagnostics and failure-mode families are wired into the
+pipeline.

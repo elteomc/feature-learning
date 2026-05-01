@@ -385,6 +385,195 @@ AGOP \(G\) is expected to be most meaningful in an intermediate regime where
 
 ---
 
+## High-gain pair closure
+
+The pair diagnostic above is intentionally global on the support of \(T\). The
+weighted law only sees the pair error after stationarity compresses it.
+
+Let
+
+$$
+A:=QR=U\Sigma V^\top
+$$
+
+be the thin SVD, and define
+
+$$
+H_X:=V^\top X^\top XV,
+\qquad
+F_X:=H_X-d_{\mathrm{eff}}I.
+$$
+
+Then
+
+$$
+T=U\Sigma^2U^\top,
+\qquad
+S-d_{\mathrm{eff}}T=U\Sigma F_X\Sigma U^\top.
+$$
+
+At exact stationarity,
+
+$$
+B=-\frac1{\lambda n}U\Sigma V^\top X^\top.
+$$
+
+Therefore
+
+$$
+B^\top(S-d_{\mathrm{eff}}T)B
+=
+\frac1{\lambda^2n^2}
+G_{\mathrm{stat}}^\top F_XG_{\mathrm{stat}},
+\qquad
+G_{\mathrm{stat}}:=\Sigma^2V^\top X^\top.
+$$
+
+This shows that global pair-isotropy is sufficient but not necessary. What is
+needed is scalar closure in high-gain directions of \(G_{\mathrm{stat}}\).
+
+### Conditional theorem
+
+Let \(P_{\mathrm{hi}}\) be an orthogonal projector. Suppose
+
+$$
+\|P_{\mathrm{hi}}F_XP_{\mathrm{hi}}\|_{\mathrm{op}}\le \varepsilon,
+\qquad
+\|(I-P_{\mathrm{hi}})G_{\mathrm{stat}}\|_{\mathrm{op}}\le \delta.
+$$
+
+Then at exact stationarity,
+
+$$
+\|B^\top(S-d_{\mathrm{eff}}T)B\|_{\mathrm{op}}
+\le
+\frac1{\lambda^2n^2}
+\left[
+\varepsilon\|G_{\mathrm{stat}}\|_{\mathrm{op}}^2
++
+2\mathcal A_{\mathrm{pair}}\|G_{\mathrm{stat}}\|_{\mathrm{op}}\delta
++
+\mathcal A_{\mathrm{pair}}\delta^2
+\right].
+$$
+
+The proof expands \(G_{\mathrm{stat}}=P_{\mathrm{hi}}G_{\mathrm{stat}}+
+(I-P_{\mathrm{hi}})G_{\mathrm{stat}}\) and bounds the high-high, cross, and
+low-low terms separately. This theorem is ready to state. What is not proved is
+that actual training always produces the high-gain scalar closure assumption.
+
+### Adaptive concentration route
+
+If the learned high-gain subspace \(W=VP_{\mathrm{hi}}\) were fixed or
+independent of Gaussian \(X\), then standard Wishart concentration would imply
+
+$$
+W^\top X^\top XW\approx dI.
+$$
+
+For learned \(W\), the natural conditional theorem is: if the possible high-gain
+subspaces lie in a low-complexity class, a net argument gives uniform
+concentration up to the covering complexity. This is a useful route, but it
+depends on a real training-geometry assumption about the complexity or stability
+of the learned high-gain subspace.
+
+---
+
+## Conditional beta tracking and the dynamics bridge
+
+The beta identity can be written with normalized leverage
+
+$$
+\ell_i:=\frac{s_i}{\bar s},
+\qquad
+\bar s:=\frac1n\sum_i s_i,
+$$
+
+as
+
+$$
+\beta_{\mathrm{fit}}=\frac1n\sum_i \ell_i r_i^2.
+$$
+
+Thus
+
+$$
+\beta_{\mathrm{fit}}-\bar r^2
+=
+\operatorname{Cov}_n(\ell,r^2).
+$$
+
+### Conditional homogeneity
+
+Let \(\mathcal Q=\sigma(q_1,\ldots,q_n)\). If
+
+$$
+\mathbb E[r_i^2\mid \mathcal Q]=\mu
+\qquad
+\text{for all }i,
+$$
+
+then
+
+$$
+\mathbb E[\beta_{\mathrm{fit}}\mid\mathcal Q]
+=
+\mathbb E[\bar r^2\mid\mathcal Q]
+=
+\mu.
+$$
+
+With conditional independence and sub-exponential tails, Bernstein gives
+
+$$
+|\beta_{\mathrm{fit}}-\bar r^2|
+\le
+C\nu
+\left[
+\frac{\operatorname{CV}(\ell)}{\sqrt n}\sqrt t
++
+\frac{\|\ell-1\|_\infty}{n}t
+\right]
+$$
+
+with high probability, conditional on \(\mathcal Q\). This is a clean sufficient
+condition for beta tracking.
+
+### Leverage-sensitive damping
+
+The dynamics bridge asks whether high hidden-gradient leverage makes residuals
+decay faster. In the simplified diagonal model
+
+$$
+\dot r_i=-(\eta_0+\alpha(\ell_i-1))r_i,
+\qquad
+\alpha>0,
+$$
+
+letting \(u_i=r_i^2\) and \(C(t)=\operatorname{Cov}_n(\ell,u(t))\) gives
+
+$$
+C'(t)
+=
+-2\eta_0C(t)
+-
+2\alpha\frac1n\sum_i(\ell_i-1)^2u_i(t).
+$$
+
+Therefore positive covariance is damped in this model. For real two-layer
+training, the hard bridge is to connect \(\ell_i\) to NTK damping. The exact
+condition is that
+
+$$
+r^\top(D_\ell K^{\mathrm{NTK}}+K^{\mathrm{NTK}}D_\ell)r
+$$
+
+is positive along the residual trajectory and dominates the leverage drift term.
+This is not automatic, since \(D_\ell\) is indefinite and \(\ell_i(t)\) changes
+during training. It is the main remaining dynamics assumption.
+
+---
+
 ## Immediate coding targets
 
 1. log \(d_{\mathrm{eff}}\)
