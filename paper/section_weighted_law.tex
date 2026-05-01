@@ -199,6 +199,14 @@ then
 This is the high-gain version of pair closure tested by the spectral-gain
 diagnostics.
 
+For isotropic Gaussian inputs, high-gain scalar closure can be justified
+conditionally by an adaptive concentration statement. If the learned high-gain
+subspace \(W=VP_{\mathrm{hi}}\) were fixed independently of \(X\), then
+\(W^\top X^\top XW\) would concentrate around \(dI\). For learned \(W\), the
+same argument applies uniformly over any low-complexity class of possible
+high-gain subspaces. Thus the remaining training-geometry assumption is that
+regularized training selects a stable or low-complexity high-gain subspace.
+
 \subsection{Deterministic weighted law}
 
 Let
@@ -329,6 +337,31 @@ positive covariance between \(\ell_i\) and \(r_i(t)^2\) is suppressed. For the
 full two-layer network this remains a bridge assumption, because the residual
 dynamics are governed by the NTK and the leverage scores also move during
 training.
+
+The obstruction is concrete. The NTK contains the terms
+\[
+K^{\mathrm{NTK}}_{ij}
+=
+\phi(Bx_i)^\top\phi(Bx_j)
++
+(q_i^\top q_j)(x_i^\top x_j),
+\]
+while beta leverage is proportional to
+\[
+\sum_j(q_i^\top q_j)^2.
+\]
+These quantities need not order samples in the same way. A clean conditional
+dynamics model is
+\[
+\dot r=-(\eta_0 I+\alpha D_\ell+E)r,
+\qquad
+D_\ell:=\operatorname{diag}(\ell_i-1),
+\qquad
+\alpha>0.
+\]
+In this model the covariance damping survives when the perturbation \(E\) is
+small enough relative to the leverage-weighted residual component. Proving an
+approximation of this form for the true NTK dynamics remains open.
 
 \subsection{Empirical summary}
 

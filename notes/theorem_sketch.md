@@ -477,6 +477,62 @@ concentration up to the covering complexity. This is a useful route, but it
 depends on a real training-geometry assumption about the complexity or stability
 of the learned high-gain subspace.
 
+More explicitly, let \(X\in\mathbb R^{d\times n}\) have iid \(N(0,1)\)
+entries. Let \(\mathcal W\) be a deterministic class of \(n\times k\) matrices
+with orthonormal columns. If
+
+$$
+\log N(\mathcal W,\|\cdot\|_{\mathrm{op}},\rho)\le \mathcal C,
+$$
+
+then a standard net argument gives, with high probability and uniformly over
+\(W\in\mathcal W\),
+
+$$
+\left\|
+\frac1d W^\top X^\top XW-I_k
+\right\|_{\mathrm{op}}
+\lesssim
+\sqrt{\frac{k+\mathcal C+t}{d}}
++
+\frac{k+\mathcal C+t}{d}
++
+\rho\frac{\|X\|_{\mathrm{op}}^2}{d}.
+$$
+
+Consequently, if the learned high-gain subspace \(W_{\mathrm{hi}}\) belongs to
+such a class, then
+
+$$
+\|P_{\mathrm{hi}}F_XP_{\mathrm{hi}}\|_{\mathrm{op}}
+\lesssim
+d\left(
+\sqrt{\frac{k+\mathcal C+t}{d}}
++
+\frac{k+\mathcal C+t}{d}
++
+\rho\frac{\|X\|_{\mathrm{op}}^2}{d}
+\right)
++
+|d-d_{\mathrm{eff}}|.
+$$
+
+The proof route is fixed-subspace Wishart concentration, union bound over a
+\(\rho\)-net, and the perturbation inequality
+
+$$
+\left\|
+W^\top X^\top XW-W_0^\top X^\top XW_0
+\right\|_{\mathrm{op}}
+\le
+2\|X\|_{\mathrm{op}}^2\|W-W_0\|_{\mathrm{op}}
++
+\|X\|_{\mathrm{op}}^2\|W-W_0\|_{\mathrm{op}}^2.
+$$
+
+This is still conditional. It reduces Claim A to proving that training selects
+high-gain subspaces with low effective complexity or enough stability.
+
 ---
 
 ## Conditional beta tracking and the dynamics bridge
@@ -571,6 +627,89 @@ $$
 is positive along the residual trajectory and dominates the leverage drift term.
 This is not automatic, since \(D_\ell\) is indefinite and \(\ell_i(t)\) changes
 during training. It is the main remaining dynamics assumption.
+
+The actual two-layer NTK has the form
+
+$$
+K^{\mathrm{NTK}}_{ij}
+=
+\phi(Bx_i)^\top\phi(Bx_j)
++
+(q_i^\top q_j)(x_i^\top x_j).
+$$
+
+By contrast, the beta leverage is
+
+$$
+\ell_i
+\propto
+\sum_j(q_i^\top q_j)^2.
+$$
+
+These two objects are related but not identical. A large NTK diagonal is also
+not enough, because residual dynamics are coupled through off-diagonal kernel
+terms. In addition, \(\ell_i(t)\) moves during training, so differentiating
+
+$$
+C(t):=\frac1n\sum_i(\ell_i(t)-1)r_i(t)^2
+$$
+
+gives a leverage-drift term:
+
+$$
+C'(t)
+=
+\frac1n\sum_i\dot\ell_i(t)r_i(t)^2
+-
+\frac1n r(t)^\top(D_\ell K+KD_\ell)r(t).
+$$
+
+Thus the full bridge condition is that the kernel damping term is positive and
+dominates leverage drift:
+
+$$
+r(t)^\top(D_\ell K^{\mathrm{NTK}}+K^{\mathrm{NTK}}D_\ell)r(t)
+\gg
+\left|\sum_i\dot\ell_i(t)r_i(t)^2\right|.
+$$
+
+This condition is plausible in regimes where high leverage corresponds to
+directions the model can fit efficiently, but it is not a consequence of
+positive semidefiniteness of the NTK alone.
+
+### Perturbative kernel model
+
+A clean conditional model is
+
+$$
+\dot r=-(\eta_0 I+\alpha D_\ell+E)r,
+\qquad
+\alpha>0.
+$$
+
+Then
+
+$$
+C'(t)
+\le
+-2\eta_0C(t)
+-
+\frac{\alpha}{n}\|D_\ell r(t)\|^2
++
+\frac{\|E\|_{\mathrm{op}}^2}{\alpha n}\|r(t)\|^2.
+$$
+
+Therefore leverage-residual covariance is damped whenever
+
+$$
+\|E\|_{\mathrm{op}}^2\|r(t)\|^2
+\ll
+\alpha^2\|D_\ell r(t)\|^2.
+$$
+
+This is the corrected perturbative version of the dynamics bridge. It says that
+the diagonal leverage-damping mechanism survives small enough kernel
+perturbations.
 
 ---
 
