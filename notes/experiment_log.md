@@ -33,7 +33,29 @@ The compact summary is:
 results/runs/pair_isotropy_with_low_rank/compact_summary.json
 ```
 
+The final figure export script is:
+
+```text
+experiments/make_final_figures.py
+```
+
+The selected figures are written to:
+
+```text
+paper/figures/
+```
+
 ## Main claims supported by the run
+
+The results support four presentation-level claims:
+
+1. The stable late-training object is the residual-weighted AGOP law.
+2. The raw AGOP law is an intermediate-regime relation because the beta bridge
+   collapses near interpolation.
+3. The theorem bound is conservative across isotropic, anisotropic, and
+   low-rank signal data.
+4. The pushed-forward pair error is the useful diagnostic for the final law,
+   while `A_pair` is a conservative support-normalized quantity.
 
 ### Weighted law
 
@@ -45,6 +67,12 @@ H^2 approx kappa_eff G_tilde
 
 is stable across all three data families. The observed weighted residual stays
 below the deterministic theorem bound on average.
+
+| family | mean weighted residual | mean theorem bound ratio |
+| --- | ---: | ---: |
+| isotropic | 3.58e-03 | 0.147 |
+| anisotropic | 1.90e-03 | 0.0896 |
+| low_rank_signal | 6.36e-04 | 0.0987 |
 
 ### Beta collapse
 
@@ -98,16 +126,57 @@ should not be central in the writeup.
 
 ## Final figure set
 
-The current final figure candidates are:
+### Main figures
 
-1. weighted law residual and theorem bound ratio by family
-2. two-regime trajectory for one representative seed per family
-3. pair diagnostic comparison using `A_pair`, pushed pair error, and residual
-4. optional matrix visualization for `H^2` and scaled weighted AGOP
+Use these as the main figures for a report or presentation:
 
-The first three are enough for the project narrative.
+1. `weighted_residual_by_family.png`
+   Shows that the weighted residual is small at best-stationarity checkpoints.
 
-## Fragment one diagnostics
+2. `theorem_bound_ratio_by_family.png`
+   Shows that the deterministic theorem bound is conservative on average.
+
+3. `beta_over_residual_energy_by_family.png`
+   Shows that `beta_fit` tracks mean residual squared across all checkpoints.
+
+4. `pushed_pair_error_by_family.png`
+   Shows that the pushed-forward pair error is small even when `A_pair` itself
+   can be large.
+
+5. One representative `two_regime_trajectory` plot.
+   This is the best explanatory figure for the two-regime story.
+
+### Backup figures
+
+Keep these as appendix or demo material:
+
+1. `symmetric_relative_error_by_family.png`
+   Useful for honest reporting of relative errors, but not the core claim.
+
+2. Per-family `beta_collapse` plots.
+   Useful if someone asks whether beta collapse is visible run by run.
+
+3. The remaining per-family `two_regime_trajectory` plots.
+   Useful for robustness, but one representative trajectory is enough in the
+   main narrative.
+
+## Caveat language
+
+Use careful wording for two points:
+
+- Do not say `A_pair` is small. Say it is a conservative support-normalized
+  diagnostic, and that the pushed-forward pair error is small in the observed
+  runs.
+- Do not make the `H^2`-only relative normalization central. Prefer the
+  symmetric relative normalization, and describe relative errors as a secondary
+  diagnostic.
+
+## Next polish target
+
+The remaining writeup task is to decide exactly which of the main figures should
+appear in the final report, then reference them from `paper/section_weighted_law.tex`.
+
+## Fragment one smoke diagnostics
 
 A fast smoke run now covers the original families plus the structured and
 failure-mode families:
