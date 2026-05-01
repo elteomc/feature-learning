@@ -2,6 +2,18 @@
 
 ## Current summary
 
+There are two kinds of runs in the repo right now:
+
+1. the tracked three-family run used for the current paper and demo figures
+2. the broader eight-family smoke run used to verify new diagnostics and
+   failure-mode wiring
+
+The three-family run is the current source of reported numbers. The eight-family
+run is a development smoke test until repeated with final seeds and plotting
+choices.
+
+## Current reported run
+
 The current experiment suite tests the weighted AGOP law on three synthetic
 teacher-student families:
 
@@ -129,3 +141,7 @@ plots. The final smoke figure folder contained 92 PNG files.
 These runs are smoke tests, not final reported numbers. Their purpose is to
 verify that the new diagnostics and failure-mode families are wired into the
 pipeline.
+
+Before promoting this suite to final evidence, run more seeds, choose the main
+figure subset, and copy the selected plots into `paper/figures/` with an updated
+manifest and figure guide.
