@@ -44,7 +44,7 @@ const sweeps = {
   regime: {
     label: "Residual energy",
     title: "Test of raw sensitivity versus residual energy",
-    description: "As beta_fit shrinks with residual energy, the weighted proxy can stay small while the raw conversion amplifies it.",
+    description: "The x-axis is centered on the Residual energy slider. Stationarity defect, pair defect, bad-direction gain, and beta correlation controls move the curves.",
     xLabel: "residual energy",
     series: [
       { key: "weightedError", label: "weighted proxy", color: "#6f7f12" },
@@ -61,7 +61,7 @@ const sweeps = {
   beta: {
     label: "Beta correlation",
     title: "Beta identity sweep",
-    description: "The beta relative error is exactly correlation times leverage CV times residual-squared CV.",
+    description: "The x-axis is centered on the Correlation slider. Leverage CV and Residual CV change the height of the beta-error curves.",
     xLabel: "correlation",
     series: [
       { key: "signedBetaError", label: "signed beta error", color: "#6f7f12" },
@@ -78,7 +78,7 @@ const sweeps = {
   pair: {
     label: "Pair gain",
     title: "Pair defect versus stationarity gain",
-    description: "A large pair defect is dangerous only when it also has large stationarity-induced gain.",
+    description: "The x-axis is centered on the Bad-direction gain slider. Pair defect and defect-gain correlation change the risk scale.",
     xLabel: "bad-direction gain",
     series: [
       { key: "supportDefect", label: "support defect", color: "#2d4054" },
@@ -100,57 +100,68 @@ const reportedFigures = [
   {
     label: "Weighted residual by family",
     file: "weighted_residual_by_family.png",
-    caption: "Weighted-law residual at best-stationarity checkpoints"
+    caption: "Weighted-law residual at best-stationarity checkpoints.",
+    detail: "This is the most direct evidence plot for the late-training law. Lower bars mean the learned feature matrix satisfies H^2 approx kappa_eff G_tilde more closely at the best-stationarity checkpoint."
   },
   {
     label: "Theorem bound ratio by family",
     file: "theorem_bound_ratio_by_family.png",
-    caption: "Observed weighted residual divided by the deterministic bound"
+    caption: "Observed weighted residual divided by the deterministic bound.",
+    detail: "The deterministic theorem gives an upper-bound template involving pair error and stationarity defect. Values below one mean the observed residual is covered by that bound. The bound is expected to be conservative."
   },
   {
     label: "Beta over residual energy",
     file: "beta_over_residual_energy_by_family.png",
-    caption: "Beta_fit tracks mean residual squared across all checkpoints"
+    caption: "Beta_fit tracks mean residual squared across all checkpoints.",
+    detail: "The beta bridge says beta_fit is a leverage-weighted residual average. Values near one mean that hidden-gradient leverage is not strongly biasing the residual average away from ordinary mean residual energy."
   },
   {
     label: "Pushed pair error",
     file: "pushed_pair_error_by_family.png",
-    caption: "Pair error after pushing through the learned feature map"
+    caption: "Pair error after pushing through the learned feature map.",
+    detail: "This plot is about the pair error that actually enters the weighted law. It can be small even when the support-normalized A_pair diagnostic is large."
   },
   {
     label: "Symmetric relative error",
     file: "symmetric_relative_error_by_family.png",
-    caption: "Secondary relative weighted-law diagnostic"
+    caption: "Secondary relative weighted-law diagnostic.",
+    detail: "This is a scale-normalized version of the weighted-law residual. It is useful for honest reporting, but it is not the central theorem diagnostic."
   },
   {
     label: "Isotropic trajectory",
     file: "isotropic_two_regime_trajectory.png",
-    caption: "Two-regime trajectory for isotropic seed 0"
+    caption: "Two-regime trajectory for isotropic seed 0.",
+    detail: "This trajectory shows how the raw-conditioned relation and the weighted relation appear at different phases of training in the baseline isotropic family."
   },
   {
     label: "Anisotropic trajectory",
     file: "anisotropic_two_regime_trajectory.png",
-    caption: "Two-regime trajectory for anisotropic seed 0"
+    caption: "Two-regime trajectory for anisotropic seed 0.",
+    detail: "This checks the same two-regime story when the input covariance has a nontrivial spectrum, where the effective-dimension correction matters."
   },
   {
     label: "Low-rank trajectory",
     file: "low_rank_signal_two_regime_trajectory.png",
-    caption: "Two-regime trajectory for low-rank signal seed 0"
+    caption: "Two-regime trajectory for low-rank signal seed 0.",
+    detail: "This checks the trajectory story in a structured signal family rather than pure Gaussian noise."
   },
   {
     label: "Isotropic beta collapse",
     file: "isotropic_beta_collapse.png",
-    caption: "Beta collapse for the isotropic representative run"
+    caption: "Beta collapse for the isotropic representative run.",
+    detail: "This shows beta_fit shrinking as interpolation is approached. That collapse explains why converting the weighted law into a raw AGOP law becomes numerically delicate late in training."
   },
   {
     label: "Anisotropic beta collapse",
     file: "anisotropic_beta_collapse.png",
-    caption: "Beta collapse for the anisotropic representative run"
+    caption: "Beta collapse for the anisotropic representative run.",
+    detail: "This checks whether the beta-collapse mechanism remains visible under anisotropic input geometry."
   },
   {
     label: "Low-rank beta collapse",
     file: "low_rank_signal_beta_collapse.png",
-    caption: "Beta collapse for the low-rank representative run"
+    caption: "Beta collapse for the low-rank representative run.",
+    detail: "This checks whether the beta bridge remains interpretable when the signal lives mostly in a low-dimensional subspace."
   }
 ]
 
@@ -217,9 +228,10 @@ function currentState() {
   const gainCorr = numberValue("gain-corr-slider")
   const pushedPairProxy = pairDefect * pairGain * pairGain * (0.5 + familyPairScale) * seedScale
   const weightedError = stationarityDefect + pushedPairProxy
-  const betaFit = residualEnergy
-  const rawSensitivity = weightedError / Math.max(betaFit, 1e-12)
   const betaError = corr * leverageCv * residSqCv
+  const betaDistortion = Math.max(0.05, 1 + betaError)
+  const betaFit = residualEnergy * betaDistortion
+  const rawSensitivity = weightedError / Math.max(betaFit, 1e-12)
   const diagnosticRisk = Math.abs(gainCorr) * pairDefect * Math.max(pairGain, 1e-8)
 
   return {
@@ -236,16 +248,18 @@ function currentState() {
     betaFit,
     rawSensitivity,
     betaError,
+    betaDistortion,
     diagnosticRisk
   }
 }
 
 function buildRegimeRows(state) {
   const rows = []
+  const center = Math.log10(Math.max(state.residualEnergy, 1e-8))
   for (let i = 0; i <= 10; i += 1) {
-    const logResidual = -5 + i * 0.5
+    const logResidual = center - 2.5 + i * 0.5
     const residualEnergy = Math.pow(10, logResidual)
-    const betaFit = residualEnergy
+    const betaFit = residualEnergy * state.betaDistortion
     const rawSensitivity = state.weightedError / Math.max(betaFit, 1e-12)
     rows.push({
       x: residualEnergy,
@@ -261,8 +275,10 @@ function buildRegimeRows(state) {
 
 function buildBetaRows(state) {
   const rows = []
+  const start = Math.max(-1, state.corr - 1)
+  const end = Math.min(1, state.corr + 1)
   for (let i = 0; i <= 10; i += 1) {
-    const corr = -1 + i * 0.2
+    const corr = start + (end - start) * i / 10
     const signedBetaError = corr * state.leverageCv * state.residSqCv
     rows.push({
       x: corr,
@@ -278,8 +294,9 @@ function buildBetaRows(state) {
 
 function buildPairRows(state) {
   const rows = []
+  const center = Math.log10(Math.max(state.pairGain, 1e-8))
   for (let i = 0; i <= 10; i += 1) {
-    const logGain = -5 + i * 0.6
+    const logGain = center - 3 + i * 0.6
     const gain = Math.pow(10, logGain)
     const gainWeightedContribution = state.pairDefect * gain * gain
     const diagnosticRisk = Math.abs(state.gainCorr) * state.pairDefect * gain
@@ -328,6 +345,41 @@ function plotScale(values, minPixel, maxPixel, logScale = false) {
   }
 }
 
+function plotDomain(values, logScale = false) {
+  const finite = values.filter((value) => Number.isFinite(value) && (!logScale || value > 0))
+  const safeValues = finite.length > 0 ? finite : [1]
+  let minValue = Math.min(...safeValues)
+  let maxValue = Math.max(...safeValues)
+
+  if (minValue === maxValue) {
+    const padding = logScale ? Math.max(minValue * 0.5, 1e-12) : Math.max(Math.abs(minValue) * 0.2, 1)
+    minValue -= padding
+    maxValue += padding
+  }
+
+  return { minValue, maxValue }
+}
+
+function tickValues(values, count, logScale = false) {
+  const { minValue, maxValue } = plotDomain(values, logScale)
+  if (logScale) {
+    const minPower = Math.floor(Math.log10(Math.max(minValue, 1e-12)))
+    const maxPower = Math.ceil(Math.log10(Math.max(maxValue, 1e-12)))
+    const ticks = []
+    for (let power = minPower; power <= maxPower; power += 1) {
+      ticks.push(Math.pow(10, power))
+    }
+    return ticks.length > 0 ? ticks : [minValue, maxValue]
+  }
+
+  const ticks = []
+  const span = Math.max(maxValue - minValue, 1e-9)
+  for (let i = 0; i < count; i += 1) {
+    ticks.push(minValue + span * i / Math.max(count - 1, 1))
+  }
+  return ticks
+}
+
 function linePath(rows, key, xScale, yScale) {
   return rows.map((row, index) => {
     const command = index === 0 ? "M" : "L"
@@ -372,8 +424,7 @@ function renderPlot(rows, sweep) {
     width: plotWidth,
     height: plotHeight,
     rx: 14,
-    fill: "#f8f6f0",
-    stroke: "#e5dfd2"
+    class: "plot-frame"
   }))
 
   for (let i = 0; i <= 4; i += 1) {
@@ -383,10 +434,47 @@ function renderPlot(rows, sweep) {
       x2: left + plotWidth,
       y1: y,
       y2: y,
-      stroke: "#ddd8cc",
-      "stroke-width": 1
+      "stroke-width": 1,
+      class: "grid-line"
     }))
   }
+
+  tickValues(yValues, 5, useLogY).forEach((tick) => {
+    const y = yScale(tick)
+    const tickLabel = svgElement("text", {
+      x: left - 12,
+      y: y + 4,
+      "text-anchor": "end",
+      fill: "currentColor",
+      "font-size": 12,
+      class: "axis-label"
+    })
+    tickLabel.textContent = formatCompact(tick)
+    svg.appendChild(tickLabel)
+  })
+
+  tickValues(xValues, 5, useLogX).forEach((tick) => {
+    const x = xScale(tick)
+    svg.appendChild(svgElement("line", {
+      x1: x,
+      x2: x,
+      y1: top + plotHeight,
+      y2: top + plotHeight + 6,
+      stroke: "currentColor",
+      "stroke-width": 1,
+      class: "axis-tick"
+    }))
+    const tickLabel = svgElement("text", {
+      x,
+      y: top + plotHeight + 23,
+      "text-anchor": "middle",
+      fill: "currentColor",
+      "font-size": 12,
+      class: "axis-label"
+    })
+    tickLabel.textContent = formatCompact(tick)
+    svg.appendChild(tickLabel)
+  })
 
   sweep.series.forEach((series) => {
     svg.appendChild(svgElement("path", {
@@ -412,7 +500,7 @@ function renderPlot(rows, sweep) {
     x: left + plotWidth / 2,
     y: height - 16,
     "text-anchor": "middle",
-    fill: "#53606c",
+    fill: "currentColor",
     "font-size": 14
   })
   xLabel.textContent = sweep.xLabel
@@ -422,7 +510,7 @@ function renderPlot(rows, sweep) {
     x: 18,
     y: top + plotHeight / 2,
     "text-anchor": "middle",
-    fill: "#53606c",
+    fill: "currentColor",
     "font-size": 14,
     transform: "rotate(-90 18 " + (top + plotHeight / 2) + ")"
   })
@@ -559,11 +647,25 @@ function renderReportedFigure() {
   const figure = reportedFigures[index]
   const image = document.getElementById("figure-image")
   const caption = document.getElementById("figure-caption")
+  const detail = document.getElementById("figure-detail")
   image.src = figureBase + figure.file
   caption.textContent = figure.caption
+  detail.textContent = figure.detail
   image.onerror = () => {
     caption.textContent = "This tracked figure is not available from the current relative path: " + figure.file
   }
+}
+
+function setTheme(theme) {
+  document.body.dataset.theme = theme
+  const button = document.getElementById("theme-button")
+  button.textContent = theme === "dark" ? "Use light theme" : "Use dark theme"
+  localStorage.setItem("weightedAgopTheme", theme)
+}
+
+function toggleTheme() {
+  const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark"
+  setTheme(nextTheme)
 }
 
 function setView(view) {
@@ -633,6 +735,7 @@ function bindEvents() {
 
   document.getElementById("figure-select").addEventListener("change", renderReportedFigure)
   document.getElementById("reset-button").addEventListener("click", reset)
+  document.getElementById("theme-button").addEventListener("click", toggleTheme)
 
   document.querySelectorAll(".view-button").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.view))
@@ -643,6 +746,7 @@ function main() {
   renderSelectors()
   renderSummaryTable()
   bindEvents()
+  setTheme(localStorage.getItem("weightedAgopTheme") || "dark")
   reset()
   setView("live")
 }
