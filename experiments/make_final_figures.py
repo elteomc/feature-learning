@@ -37,7 +37,16 @@ def metric_value(
 
 
 def sorted_families(summary: Dict[str, SummaryGroup]) -> List[str]:
-    preferred = ["isotropic", "anisotropic", "low_rank_signal", "clustered_gaussian", "mixture_subspaces"]
+    preferred = [
+        "isotropic",
+        "anisotropic",
+        "low_rank_signal",
+        "clustered_gaussian",
+        "mixture_subspaces",
+        "rare_region_outliers",
+        "two_region_gating",
+        "xor_feature",
+    ]
     return [family for family in preferred if family in summary]
 
 
@@ -134,6 +143,38 @@ def make_summary_figures(summary_path: Path, outdir: Path) -> None:
             "absolute correlation",
             False,
         ),
+        (
+            "beta_identity_error_by_family.png",
+            "all_checkpoints",
+            "beta_corr_cv_product_abs",
+            "Beta identity right-hand side",
+            "absolute corr times CV product",
+            False,
+        ),
+        (
+            "leverage_damping_corr_by_family.png",
+            "all_checkpoints",
+            "leverage_damping_corr",
+            "Residual damping versus leverage",
+            "correlation",
+            False,
+        ),
+        (
+            "high_gain_closure_by_family.png",
+            "best_stationarity",
+            "pair_high_gain_closure_op",
+            "High-gain scalar closure",
+            "operator norm",
+            True,
+        ),
+        (
+            "pair_damping_bound_proxy_by_family.png",
+            "best_stationarity",
+            "pair_damping_bound_proxy",
+            "Pair damping bound proxy",
+            "proxy scale",
+            True,
+        ),
     ]
 
     for filename, block, metric, title, ylabel, logy in figure_specs:
@@ -144,7 +185,18 @@ def make_summary_figures(summary_path: Path, outdir: Path) -> None:
 def copy_representative_trajectories(results_dir: Path, outdir: Path, families: Iterable[str]) -> None:
     for family in families:
         run_dir = results_dir / f"{family}_seed_0"
-        for name in ["beta_collapse.png", "beta_fit_diagnostics.png", "pair_gain_diagnostics.png", "phase_diagram.png", "two_regime_trajectory.png"]:
+        for name in [
+            "beta_collapse.png",
+            "beta_fit_diagnostics.png",
+            "beta_decomposition_identity.png",
+            "high_gain_closure.png",
+            "pair_defect_gain_scatter.png",
+            "pair_direction_cumulative.png",
+            "pair_gain_diagnostics.png",
+            "phase_diagram.png",
+            "residual_damping_vs_leverage.png",
+            "two_regime_trajectory.png",
+        ]:
             source = run_dir / name
             if source.exists():
                 target = outdir / f"{family}_{name}"

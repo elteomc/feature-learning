@@ -148,6 +148,7 @@ def compute_weighted_metrics(
         if math.isfinite(leverage_resid_sq_corr) and math.isfinite(leverage_cv) and math.isfinite(resid_sq_cv)
         else float("nan")
     )
+    beta_corr_cv_product_abs = abs(beta_corr_cv_product) if math.isfinite(beta_corr_cv_product) else float("nan")
 
     c_eff = float("nan")
     gamma_eff_op = float("nan")
@@ -210,6 +211,7 @@ def compute_weighted_metrics(
         "leverage_resid_sq_corr": float(leverage_resid_sq_corr),
         "beta_cv_bound": float(beta_cv_bound),
         "beta_corr_cv_product": float(beta_corr_cv_product),
+        "beta_corr_cv_product_abs": float(beta_corr_cv_product_abs),
         "c_eff": float(c_eff),
         "gamma_eff_op": float(gamma_eff_op),
         "gamma_eff_rel": float(raw_residual_rel),

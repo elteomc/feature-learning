@@ -21,6 +21,7 @@ def build_configs(
     fast: bool,
     include_low_rank: bool,
     include_structured: bool,
+    include_failure_modes: bool,
 ) -> List[ExperimentConfig]:
     configs: List[ExperimentConfig] = []
     for seed in seeds:
@@ -79,6 +80,28 @@ def build_configs(
                     cfg.lbfgs_outer_steps = 10
                     cfg.lbfgs_log_every = 5
                 configs.append(cfg)
+        if include_failure_modes:
+            for data_family in ["rare_region_outliers", "two_region_gating", "xor_feature"]:
+                cfg = ExperimentConfig(
+                    name=f"{data_family}_seed_{seed}",
+                    seed=seed,
+                    data_family=data_family,
+                    anisotropic=False,
+                    signal_rank=8,
+                    signal_noise_std=0.35,
+                    rare_fraction=0.1,
+                    rare_shift=4.0,
+                    rare_label_scale=3.0,
+                    noise_std=0.0,
+                    beta_threshold=1e-5,
+                    output_root=output_root,
+                )
+                if fast:
+                    cfg.sgd_steps = 400
+                    cfg.checkpoint_every = 100
+                    cfg.lbfgs_outer_steps = 10
+                    cfg.lbfgs_log_every = 5
+                configs.append(cfg)
     return configs
 
 
@@ -110,7 +133,10 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
             "resid_sq_cv": summarize_history_metric(rows, "resid_sq_cv"),
             "leverage_resid_sq_corr_abs": summarize_history_metric_abs(rows, "leverage_resid_sq_corr"),
             "beta_corr_cv_product": summarize_history_metric(rows, "beta_corr_cv_product"),
+            "beta_corr_cv_product_abs": summarize_history_metric(rows, "beta_corr_cv_product_abs"),
             "beta_over_resid_max_sq": summarize_history_metric(rows, "beta_over_resid_max_sq"),
+            "leverage_damping_corr": summarize_history_metric(rows, "leverage_damping_corr"),
+            "mean_log_resid_sq_decay": summarize_history_metric(rows, "mean_log_resid_sq_decay"),
             "M_bridge_op": summarize_history_metric(rows, "M_bridge_op"),
             "M_bridge_rel_frob": summarize_history_metric(rows, "M_bridge_rel_frob"),
             "theorem_bound_ratio": summarize_history_metric(rows, "theorem_bound_ratio"),
@@ -120,6 +146,9 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
             "pair_top_defect_gain": summarize_history_metric(rows, "pair_top_defect_gain"),
             "pair_gain_defect_corr_abs": summarize_history_metric(rows, "pair_gain_defect_corr_abs"),
             "pair_weighted_contribution_max": summarize_history_metric(rows, "pair_weighted_contribution_max"),
+            "pair_high_gain_closure_op": summarize_history_metric(rows, "pair_high_gain_closure_op"),
+            "pair_low_gain_op": summarize_history_metric(rows, "pair_low_gain_op"),
+            "pair_damping_bound_proxy": summarize_history_metric(rows, "pair_damping_bound_proxy"),
         },
         "best_stationarity": {
             "gamma_tilde_eff_op": summarize_metric(rows, "best_metrics_by_stationarity", "gamma_tilde_eff_op"),
@@ -133,6 +162,9 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
             "pair_top_defect_gain": summarize_metric(rows, "best_metrics_by_stationarity", "pair_top_defect_gain"),
             "pair_weighted_contribution_max": summarize_metric(rows, "best_metrics_by_stationarity", "pair_weighted_contribution_max"),
             "pair_gain_defect_corr_abs": summarize_metric(rows, "best_metrics_by_stationarity", "pair_gain_defect_corr_abs"),
+            "pair_high_gain_closure_op": summarize_metric(rows, "best_metrics_by_stationarity", "pair_high_gain_closure_op"),
+            "pair_low_gain_op": summarize_metric(rows, "best_metrics_by_stationarity", "pair_low_gain_op"),
+            "pair_damping_bound_proxy": summarize_metric(rows, "best_metrics_by_stationarity", "pair_damping_bound_proxy"),
             "theorem_bound_ratio": summarize_metric(rows, "best_metrics_by_stationarity", "theorem_bound_ratio"),
             "delta_stationary_op": summarize_metric(rows, "best_metrics_by_stationarity", "delta_stationary_op"),
             "beta_over_resid_mean_sq": summarize_metric(rows, "best_metrics_by_stationarity", "beta_over_resid_mean_sq"),
@@ -142,6 +174,7 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
             "resid_sq_cv": summarize_metric(rows, "best_metrics_by_stationarity", "resid_sq_cv"),
             "leverage_resid_sq_corr": summarize_metric(rows, "best_metrics_by_stationarity", "leverage_resid_sq_corr"),
             "beta_corr_cv_product": summarize_metric(rows, "best_metrics_by_stationarity", "beta_corr_cv_product"),
+            "beta_corr_cv_product_abs": summarize_metric(rows, "best_metrics_by_stationarity", "beta_corr_cv_product_abs"),
             "beta_over_resid_max_sq": summarize_metric(rows, "best_metrics_by_stationarity", "beta_over_resid_max_sq"),
             "M_bridge_op": summarize_metric(rows, "best_metrics_by_stationarity", "M_bridge_op"),
             "M_bridge_rel_frob": summarize_metric(rows, "best_metrics_by_stationarity", "M_bridge_rel_frob"),
@@ -157,6 +190,7 @@ def summarize_group(rows: List[Dict[str, object]]) -> Dict[str, Dict[str, Dict[s
             "resid_sq_cv": summarize_metric(rows, "best_metrics_by_raw_conditioning", "resid_sq_cv"),
             "leverage_resid_sq_corr": summarize_metric(rows, "best_metrics_by_raw_conditioning", "leverage_resid_sq_corr"),
             "beta_corr_cv_product": summarize_metric(rows, "best_metrics_by_raw_conditioning", "beta_corr_cv_product"),
+            "beta_corr_cv_product_abs": summarize_metric(rows, "best_metrics_by_raw_conditioning", "beta_corr_cv_product_abs"),
             "beta_over_resid_max_sq": summarize_metric(rows, "best_metrics_by_raw_conditioning", "beta_over_resid_max_sq"),
             "M_bridge_op": summarize_metric(rows, "best_metrics_by_raw_conditioning", "M_bridge_op"),
             "M_bridge_rel_frob": summarize_metric(rows, "best_metrics_by_raw_conditioning", "M_bridge_rel_frob"),
@@ -234,6 +268,18 @@ def build_summary(results: List[Dict[str, object]]) -> Dict[str, object]:
             row for row in results
             if row["config"].get("data_family", "gaussian") == "mixture_subspaces"
         ],
+        "rare_region_outliers": [
+            row for row in results
+            if row["config"].get("data_family", "gaussian") == "rare_region_outliers"
+        ],
+        "two_region_gating": [
+            row for row in results
+            if row["config"].get("data_family", "gaussian") == "two_region_gating"
+        ],
+        "xor_feature": [
+            row for row in results
+            if row["config"].get("data_family", "gaussian") == "xor_feature"
+        ],
     }
     runs = [{key: value for key, value in row.items() if key != "_history"} for row in results]
     return {
@@ -272,6 +318,7 @@ def main() -> None:
     parser.add_argument("--fast", action="store_true", help="Use a short smoke-test schedule.")
     parser.add_argument("--include-low-rank", action="store_true", help="Include low-rank signal plus isotropic noise.")
     parser.add_argument("--include-structured", action="store_true", help="Include clustered and mixture-of-subspaces families.")
+    parser.add_argument("--include-failure-modes", action="store_true", help="Include rare-region, two-region, and XOR-style failure families.")
     parser.add_argument("--summary-only", action="store_true", help="Rebuild summaries from existing run histories.")
     args = parser.parse_args()
 
@@ -281,6 +328,7 @@ def main() -> None:
         args.fast,
         args.include_low_rank,
         args.include_structured,
+        args.include_failure_modes,
     )
     if args.summary_only:
         all_results = load_existing_results(configs)
