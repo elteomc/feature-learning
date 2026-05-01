@@ -449,8 +449,8 @@ network enters any particular failure regime.
 A trained-network theorem would need assumptions such as:
 
 - leverage-residual covariance is controlled or forced to be large by the data
-  construction;
-- high-gain subspaces have either scalar or non-scalar input geometry;
+  construction
+- high-gain subspaces have either scalar or non-scalar input geometry
 - leverage drift and NTK residual damping are controlled well enough to connect
   training dynamics to the static diagnostics.
 

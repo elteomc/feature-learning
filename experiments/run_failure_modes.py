@@ -3,11 +3,15 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from dataclasses import asdict
 from typing import Dict, Iterable, List
 
 import matplotlib.pyplot as plt
 
 from src.failure_regimes import run_all_toy_regimes
+from src.train_two_layer import ExperimentConfig, train_one
+
+from experiments.run_pair_isotropy import build_summary
 
 
 def ensure_dir(path: Path) -> None:
@@ -105,6 +109,52 @@ def save_regime_map(regime_points: List[Dict[str, object]], output_path: Path) -
     plt.close(fig)
 
 
+def metric_from_row(row: Dict[str, object], block: str, metric: str) -> float:
+    metrics = row.get(block)
+    if not isinstance(metrics, dict):
+        return float("nan")
+    value = metrics.get(metric)
+    return float(value) if isinstance(value, (int, float)) else float("nan")
+
+
+def save_trained_smoke_plots(rows: List[Dict[str, object]], figure_dir: Path) -> None:
+    ensure_dir(figure_dir)
+    labels = [str(row["name"]) for row in rows]
+    save_bar_plot(
+        labels=labels,
+        values=[
+            metric_from_row(row, "best_metrics_by_stationarity", "beta_over_resid_mean_sq")
+            for row in rows
+        ],
+        title="Trained smoke beta ratio",
+        ylabel="beta_fit / mean residual squared",
+        output_path=figure_dir / "trained_beta_ratio_smoke.png",
+        logy=False,
+    )
+    save_bar_plot(
+        labels=labels,
+        values=[
+            metric_from_row(row, "best_metrics_by_stationarity", "pair_high_gain_closure_op")
+            for row in rows
+        ],
+        title="Trained smoke high-gain pair closure",
+        ylabel="operator norm",
+        output_path=figure_dir / "trained_high_gain_closure_smoke.png",
+        logy=True,
+    )
+    save_bar_plot(
+        labels=labels,
+        values=[
+            metric_from_row(row, "best_metrics_by_stationarity", "pair_push_scaled_op")
+            for row in rows
+        ],
+        title="Trained smoke pushed pair error",
+        ylabel="scaled pushed pair error",
+        output_path=figure_dir / "trained_pushed_pair_smoke.png",
+        logy=True,
+    )
+
+
 def run_toy(output_root: Path, figure_dir: Path) -> None:
     payload = run_all_toy_regimes()
     write_json(output_root / "toy" / "summary.json", payload)
@@ -122,6 +172,81 @@ def run_toy(output_root: Path, figure_dir: Path) -> None:
         regime_points=payload["regime_points"],  # type: ignore[arg-type]
         output_path=figure_dir / "regime_map.png",
     )
+
+
+def trained_configs(output_root: Path, fast: bool) -> List[ExperimentConfig]:
+    configs = [
+        ExperimentConfig(
+            name="rare_hard_cluster_seed_0",
+            seed=0,
+            data_family="rare_region_outliers",
+            rare_fraction=0.1,
+            rare_shift=4.0,
+            rare_label_scale=4.0,
+            noise_std=0.0,
+            output_root=str(output_root / "trained"),
+        ),
+        ExperimentConfig(
+            name="rare_easy_cluster_seed_0",
+            seed=1,
+            data_family="rare_region_outliers",
+            rare_fraction=0.1,
+            rare_shift=4.0,
+            rare_label_scale=0.4,
+            noise_std=0.0,
+            output_root=str(output_root / "trained"),
+        ),
+        ExperimentConfig(
+            name="two_region_gating_stress_seed_0",
+            seed=0,
+            data_family="two_region_gating",
+            signal_noise_std=0.25,
+            noise_std=0.0,
+            output_root=str(output_root / "trained"),
+        ),
+        ExperimentConfig(
+            name="mixture_subspaces_stress_seed_0",
+            seed=0,
+            data_family="mixture_subspaces",
+            signal_rank=6,
+            signal_noise_std=0.2,
+            noise_std=0.0,
+            output_root=str(output_root / "trained"),
+        ),
+    ]
+    if fast:
+        for cfg in configs:
+            cfg.sgd_steps = 300
+            cfg.checkpoint_every = 100
+            cfg.lbfgs_outer_steps = 8
+            cfg.lbfgs_log_every = 4
+    return configs
+
+
+def run_trained(output_root: Path, figure_dir: Path, fast: bool) -> None:
+    configs = trained_configs(output_root, fast)
+    rows: List[Dict[str, object]] = []
+    for cfg in configs:
+        result = train_one(cfg)
+        rows.append(
+            {
+                "name": cfg.name,
+                "output_dir": str(result["output_dir"]),
+                "config": asdict(cfg),
+                "final_metrics": result["final_metrics"],
+                "best_metrics_by_stationarity": result["best_metrics_by_stationarity"],
+                "best_metrics_by_weighted_law": result["best_metrics_by_weighted_law"],
+                "best_metrics_by_raw_conditioning": result["best_metrics_by_raw_conditioning"],
+                "crossover_metrics": result["crossover_metrics"],
+                "_history": result["history"],
+            }
+        )
+
+    summary = build_summary(rows)
+    write_json(output_root / "trained" / "summary.json", summary)
+    write_json(output_root / "trained" / "compact_summary.json", summary["groups"])  # type: ignore[arg-type]
+    write_json(output_root / "trained" / "run_summary.json", {"runs": rows})
+    save_trained_smoke_plots(rows, figure_dir)
 
 
 def main() -> None:
@@ -142,6 +267,7 @@ def main() -> None:
         type=Path,
         default=Path("paper/figures/failure_modes"),
     )
+    parser.add_argument("--fast", action="store_true", help="Use a short trained smoke schedule.")
     args = parser.parse_args()
 
     if not args.toy and not args.trained:
@@ -151,9 +277,7 @@ def main() -> None:
         run_toy(args.output_root, args.figure_dir)
 
     if args.trained:
-        raise NotImplementedError(
-            "Trained failure-mode smoke runs will be added after toy regimes are validated."
-        )
+        run_trained(args.output_root, args.figure_dir, args.fast)
 
 
 if __name__ == "__main__":
