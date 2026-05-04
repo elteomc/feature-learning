@@ -466,6 +466,89 @@ figcaption {
   padding: 14px;
 }
 
+.active-controls {
+  margin: 8px 0 0;
+  font-size: 0.88rem;
+  color: var(--olive);
+  font-weight: 700;
+}
+
+.control-group {
+  transition: opacity 160ms ease;
+}
+
+.control-group.is-inactive {
+  opacity: 0.55;
+}
+
+.control-group .group-status {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: rgb(255 255 255 / 60%);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.control-group.is-active .group-status {
+  color: #d7f25b;
+}
+
+.trajectory-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.trajectory-metric {
+  min-width: 220px;
+}
+
+.trajectory-metric label {
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+
+#trajectory-plot {
+  display: block;
+  width: 100%;
+  min-height: 280px;
+  color: var(--muted);
+}
+
+.regime-locator {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--soft);
+  padding: 18px;
+}
+
+#regime-plot {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 10px;
+  color: var(--muted);
+}
+
+.regime-status {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.regime-quadrant-label {
+  font-family: Inter, Segoe UI, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--muted);
+}
+
 [hidden] {
   display: none;
 }

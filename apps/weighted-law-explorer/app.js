@@ -44,10 +44,12 @@ const sweeps = {
   regime: {
     label: "Residual energy",
     title: "Test of raw sensitivity versus residual energy",
-    description: "The x-axis is centered on the Residual energy slider. Stationarity defect, pair defect, bad-direction gain, and beta correlation controls move the curves.",
+    description: "The x-axis is centered on the Residual energy slider. Raw sensitivity = weighted error / beta fit; it spikes once beta fit collapses below the weighted error.",
     xLabel: "residual energy",
     logScale: true,
     tableNote: "Each row is a hypothetical checkpoint at a different residual energy. Stationarity defect and pair compression are held fixed, so raw sensitivity varies purely because beta fit scales with residual energy.",
+    activeGroups: ["weighted", "pair"],
+    activeText: "Active sliders: Residual energy, Stationarity defect, Pair defect, Bad-direction gain.",
     series: [
       { key: "weightedError", label: "weighted proxy", cssVar: "--series-a" },
       { key: "rawSensitivity", label: "raw sensitivity", cssVar: "--series-b" }
@@ -63,10 +65,12 @@ const sweeps = {
   beta: {
     label: "Beta correlation",
     title: "Beta identity sweep",
-    description: "The x-axis is centered on the Correlation slider. Leverage CV and Residual CV change the height of the beta-error curves.",
+    description: "The x-axis is centered on the Correlation slider. Beta error = corr × leverage CV × residual CV. Increase Leverage CV or Residual CV to grow the height of the curves.",
     xLabel: "correlation",
     logScale: false,
     tableNote: "Each row is a possible leverage-residual correlation. Leverage CV and residual CV are fixed by the sidebar, so the table focuses on the beta error implied by changing correlation.",
+    activeGroups: ["beta"],
+    activeText: "Active sliders: Leverage CV, Residual CV, Correlation. (Try moving Leverage CV up to see the curves grow.)",
     series: [
       { key: "signedBetaError", label: "signed beta error", cssVar: "--series-a" },
       { key: "absoluteBetaError", label: "absolute beta error", cssVar: "--series-c" }
@@ -81,10 +85,12 @@ const sweeps = {
   pair: {
     label: "Pair gain",
     title: "Pair defect versus stationarity gain",
-    description: "The x-axis is centered on the Bad-direction gain slider. Pair defect and defect-gain correlation change the risk scale.",
+    description: "The x-axis is centered on the Bad-direction gain slider. Even a large support-normalized pair defect is harmless if the bad direction has small stationarity gain.",
     xLabel: "bad-direction gain",
     logScale: true,
     tableNote: "Each row changes the stationarity gain on a bad pair direction. The pair defect is held fixed so the table shows how gain turns a worst-direction defect into actual risk.",
+    activeGroups: ["pair"],
+    activeText: "Active sliders: Pair defect, Bad-direction gain, Defect-gain correlation.",
     series: [
       { key: "supportDefect", label: "support defect", cssVar: "--series-c" },
       { key: "gainWeightedContribution", label: "gain-weighted contribution", cssVar: "--series-b" }
@@ -98,6 +104,35 @@ const sweeps = {
     ]
   }
 }
+
+const trajectoryMetrics = {
+  gamma_tilde_eff_rel_h2: {
+    label: "Weighted-law relative residual",
+    description: "γ̃_eff_rel_h2: weighted residual normalized by ||H²||. The theorem says this should be small at late training.",
+    logScale: true,
+    cssVar: "--series-a"
+  },
+  beta_fit: {
+    label: "Beta fit",
+    description: "β_fit: hidden-leverage weighted average of squared residuals. Tracks mean residual squared.",
+    logScale: true,
+    cssVar: "--series-b"
+  },
+  theorem_bound_ratio: {
+    label: "Theorem bound ratio",
+    description: "Observed weighted residual / deterministic theorem bound. Below 1 means the theorem covers the observed error.",
+    logScale: false,
+    cssVar: "--series-c"
+  },
+  pair_push_scaled_op: {
+    label: "Pushed pair error",
+    description: "The pair error after pushing through the learned feature map. This is what the weighted law actually sees.",
+    logScale: true,
+    cssVar: "--series-c"
+  }
+}
+
+let trajectoryData = null
 
 const figureBase = "../../paper/figures/"
 
@@ -267,7 +302,11 @@ function currentState() {
   const pairDefect = pow10("pair-defect-slider")
   const pairGain = pow10("pair-gain-slider")
   const gainCorr = numberValue("gain-corr-slider")
-  const pushedPairProxy = pairDefect * pairGain * pairGain * (0.5 + familyPairScale) * seedScale
+  // Defect-gain correlation amplifies pushed pair contribution: a positive
+  // correlation means worst-direction pair defects also have high stationarity
+  // gain, so the bad direction matters. A negative correlation suppresses it.
+  const gainCorrAmplification = 1 + gainCorr
+  const pushedPairProxy = pairDefect * pairGain * pairGain * (0.5 + familyPairScale) * seedScale * gainCorrAmplification
   const weightedError = stationarityDefect + pushedPairProxy
   const betaError = corr * leverageCv * residSqCv
   const betaDistortion = Math.max(0.05, 1 + betaError)
@@ -574,6 +613,312 @@ function renderLegend(sweep) {
   })
 }
 
+function highlightActiveControls(sweep) {
+  document.querySelectorAll(".control-group").forEach((group) => {
+    const groupKey = group.dataset.group
+    const isActive = sweep.activeGroups && sweep.activeGroups.includes(groupKey)
+    group.classList.toggle("is-inactive", groupKey && !isActive)
+  })
+  const activeControlsLabel = document.getElementById("sweep-active-controls")
+  if (activeControlsLabel) {
+    activeControlsLabel.textContent = sweep.activeText || ""
+  }
+}
+
+function renderTrajectoryLegend(metricKey) {
+  const legend = document.getElementById("trajectory-legend")
+  legend.innerHTML = ""
+  const lossSpan = document.createElement("span")
+  const lossSwatch = document.createElement("span")
+  lossSwatch.className = "legend-swatch"
+  lossSwatch.style.background = "var(--muted)"
+  lossSpan.appendChild(lossSwatch)
+  lossSpan.append("loss_total (left axis)")
+  legend.appendChild(lossSpan)
+
+  const overlay = trajectoryMetrics[metricKey]
+  if (overlay) {
+    const span = document.createElement("span")
+    const swatch = document.createElement("span")
+    swatch.className = "legend-swatch"
+    swatch.style.background = "var(" + overlay.cssVar + ")"
+    span.appendChild(swatch)
+    span.append(overlay.label + " (right axis)")
+    legend.appendChild(span)
+  }
+}
+
+function renderTrajectoryPlot(family, metricKey) {
+  const svg = document.getElementById("trajectory-plot")
+  svg.innerHTML = ""
+  const description = document.getElementById("trajectory-description")
+  const configSpan = document.getElementById("trajectory-config")
+  if (!trajectoryData) {
+    const text = svgElement("text", {
+      x: 380, y: 160, "text-anchor": "middle", fill: "currentColor", "font-size": 14
+    })
+    text.textContent = "Loading trajectory data..."
+    svg.appendChild(text)
+    return
+  }
+  const familyData = trajectoryData.families[family]
+  if (!familyData) {
+    const text = svgElement("text", {
+      x: 380, y: 160, "text-anchor": "middle", fill: "currentColor", "font-size": 14
+    })
+    text.textContent = "No trajectory available for this family."
+    svg.appendChild(text)
+    return
+  }
+  if (configSpan) {
+    const c = familyData.config
+    configSpan.textContent = "n=" + c.n + ", d=" + c.d + ", m_teacher=" + c.m_teacher + ", m_student=" + c.m_student + ", seed=" + familyData.seed
+  }
+
+  const overlayInfo = trajectoryMetrics[metricKey]
+  if (description && overlayInfo) {
+    description.dataset.metric = overlayInfo.description
+  }
+
+  const width = 760
+  const height = 320
+  const left = 64
+  const right = 70
+  const top = 28
+  const bottom = 56
+  const plotWidth = width - left - right
+  const plotHeight = height - top - bottom
+
+  svg.appendChild(svgElement("rect", {
+    x: left, y: top, width: plotWidth, height: plotHeight, rx: 14, class: "plot-frame"
+  }))
+
+  const history = familyData.history.filter((row) => row.step !== null && row.step !== undefined)
+  if (history.length === 0) return
+  const steps = history.map((row) => row.step)
+  const lossValues = history.map((row) => row.loss_total).filter((value) => Number.isFinite(value) && value > 0)
+  const overlayValues = history.map((row) => row[metricKey]).filter((value) => Number.isFinite(value) && value > 0)
+
+  const xScale = plotScale(steps, left, left + plotWidth, false)
+  const lossLogScale = plotScale(lossValues, 0, plotHeight, true)
+  const lossY = (value) => top + plotHeight - lossLogScale(Math.max(value, 1e-30))
+  const overlayLog = overlayInfo && overlayInfo.logScale
+  const overlayScaleRaw = plotScale(overlayValues, 0, plotHeight, !!overlayLog)
+  const overlayY = (value) => {
+    const v = overlayLog ? Math.max(value, 1e-30) : value
+    return top + plotHeight - overlayScaleRaw(v)
+  }
+
+  // Left y-axis ticks (loss, log)
+  tickValues(lossValues, 5, true).forEach((tick) => {
+    const y = lossY(tick)
+    svg.appendChild(svgElement("line", {
+      x1: left, x2: left + plotWidth, y1: y, y2: y, class: "grid-line", "stroke-width": 1
+    }))
+    const label = svgElement("text", {
+      x: left - 10, y: y + 4, "text-anchor": "end", fill: "currentColor", "font-size": 11, class: "axis-label"
+    })
+    label.textContent = formatCompact(tick)
+    svg.appendChild(label)
+  })
+
+  // Right y-axis ticks for the overlay metric
+  if (overlayValues.length > 0) {
+    tickValues(overlayValues, 4, !!overlayLog).forEach((tick) => {
+      const y = overlayY(tick)
+      const label = svgElement("text", {
+        x: left + plotWidth + 10, y: y + 4, "text-anchor": "start", fill: "currentColor", "font-size": 11, class: "axis-label"
+      })
+      label.textContent = formatCompact(tick)
+      svg.appendChild(label)
+    })
+  }
+
+  // X ticks
+  tickValues(steps, 6, false).forEach((tick) => {
+    const x = xScale(tick)
+    svg.appendChild(svgElement("line", {
+      x1: x, x2: x, y1: top + plotHeight, y2: top + plotHeight + 6,
+      stroke: "currentColor", "stroke-width": 1, class: "axis-tick"
+    }))
+    const label = svgElement("text", {
+      x, y: top + plotHeight + 23, "text-anchor": "middle", fill: "currentColor", "font-size": 11, class: "axis-label"
+    })
+    label.textContent = Math.round(tick).toString()
+    svg.appendChild(label)
+  })
+
+  // Loss line
+  const lossPath = history
+    .filter((row) => Number.isFinite(row.loss_total) && row.loss_total > 0)
+    .map((row, index) => (index === 0 ? "M" : "L") + " " + xScale(row.step).toFixed(2) + " " + lossY(row.loss_total).toFixed(2))
+    .join(" ")
+  svg.appendChild(svgElement("path", {
+    d: lossPath, fill: "none", stroke: resolveColor("--muted"), "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round"
+  }))
+
+  // Overlay line
+  if (overlayInfo && overlayValues.length > 0) {
+    const overlayPath = history
+      .filter((row) => Number.isFinite(row[metricKey]) && row[metricKey] > 0)
+      .map((row, index) => (index === 0 ? "M" : "L") + " " + xScale(row.step).toFixed(2) + " " + overlayY(row[metricKey]).toFixed(2))
+      .join(" ")
+    svg.appendChild(svgElement("path", {
+      d: overlayPath, fill: "none", stroke: resolveColor(overlayInfo.cssVar), "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round"
+    }))
+  }
+
+  // Best-stationarity vertical line
+  if (Number.isFinite(familyData.best_step)) {
+    const x = xScale(familyData.best_step)
+    svg.appendChild(svgElement("line", {
+      x1: x, x2: x, y1: top, y2: top + plotHeight,
+      stroke: resolveColor("--olive-bright"), "stroke-width": 1.5, "stroke-dasharray": "4 4"
+    }))
+    const label = svgElement("text", {
+      x: x + 6, y: top + 14, fill: resolveColor("--olive-bright"), "font-size": 11, "font-weight": 700
+    })
+    label.textContent = "best stationarity (step " + familyData.best_step + ")"
+    svg.appendChild(label)
+  }
+
+  // Axis labels
+  const xLabel = svgElement("text", {
+    x: left + plotWidth / 2, y: height - 14, "text-anchor": "middle", fill: "currentColor", "font-size": 13
+  })
+  xLabel.textContent = "training step"
+  svg.appendChild(xLabel)
+
+  const yLabelLeft = svgElement("text", {
+    x: 14, y: top + plotHeight / 2, "text-anchor": "middle", fill: "currentColor", "font-size": 11,
+    transform: "rotate(-90 14 " + (top + plotHeight / 2) + ")"
+  })
+  yLabelLeft.textContent = "loss_total (log)"
+  svg.appendChild(yLabelLeft)
+
+  if (overlayInfo) {
+    const yLabelRight = svgElement("text", {
+      x: width - 14, y: top + plotHeight / 2, "text-anchor": "middle", fill: "currentColor", "font-size": 11,
+      transform: "rotate(90 " + (width - 14) + " " + (top + plotHeight / 2) + ")"
+    })
+    yLabelRight.textContent = overlayInfo.label
+    svg.appendChild(yLabelRight)
+  }
+}
+
+function classifyRegime(state) {
+  // High beta error => beta-bridge collapse risk.
+  // High gain-weighted pair contribution => pair-compression failure risk.
+  const betaBad = Math.abs(state.betaError) > 0.25
+  const pairBad = state.pairDefect * state.pairGain * state.pairGain > 1
+  if (betaBad && pairBad) return { name: "Compound failure", color: "#b75c34", text: "Both bridges are broken: weighted law and raw law are both unreliable." }
+  if (betaBad) return { name: "Beta-bridge collapse", color: "#f2a16f", text: "β_fit is mis-tracking residual energy. Raw AGOP conversion is fragile." }
+  if (pairBad) return { name: "Pair-compression failure", color: "#5a96c8", text: "A bad direction overlaps with high stationarity gain. Pushed pair error blows up." }
+  return { name: "Benign quadrant", color: "#6f7f12", text: "Both bridges hold. Weighted law is well-conditioned in this regime." }
+}
+
+function renderRegimeLocator(state) {
+  const svg = document.getElementById("regime-plot")
+  const status = document.getElementById("regime-status")
+  svg.innerHTML = ""
+  const width = 360
+  const height = 320
+  const left = 48
+  const right = 16
+  const top = 28
+  const bottom = 48
+  const plotWidth = width - left - right
+  const plotHeight = height - top - bottom
+
+  // Quadrant rectangles. x-axis = beta error (signed), y-axis = pushed pair contribution.
+  // Left half = benign beta, right half = beta collapse.
+  // Bottom = harmless pair, top = pair failure.
+  const xMid = left + plotWidth / 2
+  const yMid = top + plotHeight / 2
+  const benign = "rgba(111, 127, 18, 0.18)"
+  const orange = "rgba(247, 161, 111, 0.22)"
+  const blue = "rgba(90, 150, 200, 0.22)"
+  const rust = "rgba(183, 92, 52, 0.22)"
+
+  svg.appendChild(svgElement("rect", { x: left, y: yMid, width: plotWidth / 2, height: plotHeight / 2, fill: benign }))
+  svg.appendChild(svgElement("rect", { x: xMid, y: yMid, width: plotWidth / 2, height: plotHeight / 2, fill: orange }))
+  svg.appendChild(svgElement("rect", { x: left, y: top, width: plotWidth / 2, height: plotHeight / 2, fill: blue }))
+  svg.appendChild(svgElement("rect", { x: xMid, y: top, width: plotWidth / 2, height: plotHeight / 2, fill: rust }))
+  svg.appendChild(svgElement("rect", { x: left, y: top, width: plotWidth, height: plotHeight, rx: 12, class: "plot-frame", fill: "none" }))
+
+  // Quadrant labels
+  const labels = [
+    { x: left + plotWidth * 0.25, y: yMid + plotHeight * 0.32, text: "Benign" },
+    { x: xMid + plotWidth * 0.25, y: yMid + plotHeight * 0.32, text: "Beta collapse" },
+    { x: left + plotWidth * 0.25, y: top + plotHeight * 0.18, text: "Pair failure" },
+    { x: xMid + plotWidth * 0.25, y: top + plotHeight * 0.18, text: "Compound" }
+  ]
+  labels.forEach((l) => {
+    const text = svgElement("text", {
+      x: l.x, y: l.y, "text-anchor": "middle", class: "regime-quadrant-label"
+    })
+    text.textContent = l.text
+    svg.appendChild(text)
+  })
+
+  // Crosshair axes
+  svg.appendChild(svgElement("line", { x1: xMid, x2: xMid, y1: top, y2: top + plotHeight, class: "grid-line" }))
+  svg.appendChild(svgElement("line", { x1: left, x2: left + plotWidth, y1: yMid, y2: yMid, class: "grid-line" }))
+
+  // Map state -> coordinates.
+  // x: clamp signed betaError to [-1, 1] then map to [left, left+plotWidth]
+  const xVal = Math.max(-1, Math.min(1, state.betaError))
+  const xPos = left + (xVal + 1) / 2 * plotWidth
+  // y: log10 of pushedPairProxy normalized to a range. larger = more bad = closer to top.
+  const logProxy = Math.log10(Math.max(state.pushedPairProxy, 1e-12))
+  const yNorm = Math.max(0, Math.min(1, (logProxy + 6) / 8)) // -6..2 visible range
+  const yPos = top + (1 - yNorm) * plotHeight
+
+  // Reference dots for the three real families (benign quadrant, near origin)
+  const familyKeys = ["isotropic", "anisotropic", "low_rank_signal"]
+  familyKeys.forEach((key, index) => {
+    const fam = families[key]
+    const fx = left + plotWidth * (0.18 + index * 0.06)
+    const logFam = Math.log10(Math.max(fam.pushedPair, 1e-12))
+    const fyNorm = Math.max(0, Math.min(1, (logFam + 6) / 8))
+    const fy = top + (1 - fyNorm) * plotHeight
+    svg.appendChild(svgElement("circle", {
+      cx: fx, cy: fy, r: 5, fill: "rgba(111, 127, 18, 0.55)", stroke: resolveColor("--olive"), "stroke-width": 1.5
+    }))
+    const tag = svgElement("text", {
+      x: fx, y: fy - 8, "text-anchor": "middle", "font-size": 9, fill: resolveColor("--muted")
+    })
+    tag.textContent = key.replace("_signal", "").replace("_", " ").slice(0, 10)
+    svg.appendChild(tag)
+  })
+
+  // Live position
+  const regime = classifyRegime(state)
+  svg.appendChild(svgElement("circle", {
+    cx: xPos, cy: yPos, r: 9, fill: regime.color, stroke: resolveColor("--panel"), "stroke-width": 2.5
+  }))
+
+  // Axis labels
+  const xLabel = svgElement("text", {
+    x: left + plotWidth / 2, y: height - 16, "text-anchor": "middle", fill: "currentColor", "font-size": 11
+  })
+  xLabel.textContent = "← benign beta · beta error · beta collapse →"
+  svg.appendChild(xLabel)
+
+  const yLabel = svgElement("text", {
+    x: 14, y: top + plotHeight / 2, "text-anchor": "middle", fill: "currentColor", "font-size": 11,
+    transform: "rotate(-90 14 " + (top + plotHeight / 2) + ")"
+  })
+  yLabel.textContent = "pushed pair (log)"
+  svg.appendChild(yLabel)
+
+  if (status) {
+    status.textContent = regime.name + " — " + regime.text
+    status.style.borderLeft = "4px solid " + regime.color
+    status.style.paddingLeft = "12px"
+  }
+}
+
 function renderTable(rows, sweep) {
   const head = document.getElementById("sweep-table-head")
   const body = document.getElementById("sweep-table-body")
@@ -684,10 +1029,16 @@ function renderLive() {
   renderFamilyText()
   document.getElementById("sweep-title").textContent = sweep.title
   document.getElementById("sweep-description").textContent = sweep.description
+  highlightActiveControls(sweep)
   renderLegend(sweep)
   renderPlot(rows, sweep)
   renderTable(rows, sweep)
   renderInsights(state)
+  renderRegimeLocator(state)
+  const family = document.getElementById("family-select").value
+  const metricKey = document.getElementById("trajectory-metric-select").value
+  renderTrajectoryPlot(family, metricKey)
+  renderTrajectoryLegend(metricKey)
 }
 
 function renderReportedFigure() {
@@ -732,6 +1083,7 @@ function renderSelectors() {
   const familySelect = document.getElementById("family-select")
   const sweepSelect = document.getElementById("sweep-select")
   const figureSelect = document.getElementById("figure-select")
+  const trajectoryMetricSelect = document.getElementById("trajectory-metric-select")
 
   Object.entries(families).forEach(([key, family]) => {
     familySelect.appendChild(option(key, family.label))
@@ -739,6 +1091,10 @@ function renderSelectors() {
 
   Object.entries(sweeps).forEach(([key, sweep]) => {
     sweepSelect.appendChild(option(key, sweep.label))
+  })
+
+  Object.entries(trajectoryMetrics).forEach(([key, metric]) => {
+    trajectoryMetricSelect.appendChild(option(key, metric.label))
   })
 
   const groups = new Map()
@@ -767,6 +1123,7 @@ function reset() {
   document.getElementById("pair-gain-slider").value = "-2"
   document.getElementById("gain-corr-slider").value = "0.05"
   document.getElementById("figure-select").value = "0"
+  document.getElementById("trajectory-metric-select").value = "gamma_tilde_eff_rel_h2"
   renderLive()
   renderReportedFigure()
 }
@@ -800,10 +1157,30 @@ function bindEvents() {
   document.getElementById("figure-select").addEventListener("change", renderReportedFigure)
   document.getElementById("reset-button").addEventListener("click", reset)
   document.getElementById("theme-button").addEventListener("click", toggleTheme)
+  document.getElementById("trajectory-metric-select").addEventListener("change", renderLive)
 
   document.querySelectorAll(".view-button").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.view))
   })
+}
+
+function loadTrajectories() {
+  return fetch("data/trajectories.json", { cache: "no-store" })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to load trajectory data: " + response.status)
+      }
+      return response.json()
+    })
+    .then((payload) => {
+      trajectoryData = payload
+      renderLive()
+    })
+    .catch((err) => {
+      console.warn("trajectories.json unavailable:", err)
+      trajectoryData = { families: {} }
+      renderLive()
+    })
 }
 
 function main() {
@@ -813,6 +1190,7 @@ function main() {
   setTheme(localStorage.getItem("weightedAgopTheme") || "dark")
   reset()
   setView("live")
+  loadTrajectories()
 }
 
 main()

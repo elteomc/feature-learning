@@ -36,7 +36,7 @@
         <select id="sweep-select"></select>
       </section>
 
-      <section class="control-group">
+      <section class="control-group" data-group="weighted">
         <h2>Weighted Law</h2>
         <div class="slider-row">
           <label for="residual-slider" title="Sets beta fit through the empirical beta bridge">Residual energy</label>
@@ -50,8 +50,7 @@
         </div>
       </section>
 
-      <section class="control-group">
-        <h2>Beta Bridge</h2>
+      <section class="control-group" data-group="beta">
         <div class="slider-row">
           <label for="leverage-cv-slider" title="Coefficient of variation of hidden-gradient leverage">Leverage CV</label>
           <input id="leverage-cv-slider" type="range" min="-3" max="1" step="0.05" value="-1">
@@ -69,7 +68,7 @@
         </div>
       </section>
 
-      <section class="control-group">
+      <section class="control-group" data-group="pair">
         <h2>Pair Compression</h2>
         <div class="slider-row">
           <label for="pair-defect-slider" title="Worst support-normalized pair defect">Pair defect</label>
@@ -116,10 +115,46 @@
               <p class="eyebrow">Generated sweep</p>
               <h2 id="sweep-title"></h2>
               <p id="sweep-description"></p>
+              <p id="sweep-active-controls" class="active-controls"></p>
             </div>
             <div class="legend" id="plot-legend"></div>
           </div>
           <svg id="live-plot" viewBox="0 0 760 360" role="img" aria-labelledby="sweep-title"></svg>
+        </section>
+
+        <section class="panel split">
+          <div class="trajectory-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Real training trajectory</p>
+                <h2 id="trajectory-title">Trained network: residual versus weighted-law residual</h2>
+                <p id="trajectory-description">
+                  This panel is from the actual logged run for the selected family
+                  (<span id="trajectory-config"></span>). Pick a metric to overlay
+                  on the loss curve. The vertical line is the best-stationarity
+                  checkpoint reported in the paper.
+                </p>
+              </div>
+              <div class="trajectory-metric">
+                <label for="trajectory-metric-select">Overlay metric</label>
+                <select id="trajectory-metric-select"></select>
+              </div>
+            </div>
+            <svg id="trajectory-plot" viewBox="0 0 760 320" role="img" aria-labelledby="trajectory-title"></svg>
+            <div class="legend" id="trajectory-legend"></div>
+          </div>
+
+          <div class="regime-locator">
+            <p class="eyebrow">Where am I?</p>
+            <h2>Failure-map locator</h2>
+            <p>
+              The current sliders place the run in one of four algebraic regimes
+              from the failure-mode taxonomy. The empirical families land near
+              the benign quadrant.
+            </p>
+            <svg id="regime-plot" viewBox="0 0 360 320" role="img" aria-labelledby="regime-status"></svg>
+            <p id="regime-status" class="regime-status"></p>
+          </div>
         </section>
 
         <section class="panel">

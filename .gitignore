@@ -30,3 +30,7 @@ results/cache/
 
 # Logs
 *.log
+
+# Node (used for the demo's headless smoke test only)
+node_modules/
+package-lock.json
