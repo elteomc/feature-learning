@@ -106,6 +106,15 @@ const sweeps = {
 }
 
 const trajectoryMetrics = {
+  raw_vs_weighted: {
+    label: "Raw vs weighted residual",
+    description: "Side-by-side comparison: the raw-AGOP relative residual diverges late in training while the weighted-AGOP residual stays small. This is the central two-regime claim.",
+    logScale: true,
+    series: [
+      { key: "gamma_eff_rel", label: "raw residual", cssVar: "--series-b" },
+      { key: "gamma_tilde_eff_rel_h2", label: "weighted residual", cssVar: "--series-a" }
+    ]
+  },
   r2: {
     label: "R-squared (1 - resid_mean_sq / var_y)",
     description: "The fraction of label variance the model explains. Computed live from var(y) of each family.",
@@ -118,6 +127,12 @@ const trajectoryMetrics = {
     description: "Weighted residual normalized by the spectral norm of H squared. The theorem says this should shrink late in training.",
     logScale: true,
     cssVar: "--series-a"
+  },
+  gamma_eff_rel: {
+    label: "Raw-law relative residual",
+    description: "Raw-AGOP relative residual using the deterministic bridge c_eff = 1 / (kappa_eff * beta_fit). It diverges late in training as beta_fit collapses.",
+    logScale: true,
+    cssVar: "--series-b"
   },
   beta_fit: {
     label: "Beta fit",
@@ -137,6 +152,13 @@ const trajectoryMetrics = {
     logScale: true,
     cssVar: "--series-c"
   }
+}
+
+function trajectorySeriesFor(metricKey) {
+  const info = trajectoryMetrics[metricKey]
+  if (!info) return []
+  if (Array.isArray(info.series) && info.series.length > 0) return info.series
+  return [{ key: metricKey, label: info.label, cssVar: info.cssVar || "--series-a" }]
 }
 
 let trajectoryData = null
@@ -362,13 +384,25 @@ function buildRegimeRows(state) {
     const residualEnergy = Math.pow(10, logResidual)
     const betaFit = residualEnergy * state.betaDistortion
     const rawSensitivity = state.weightedError / Math.max(betaFit, 1e-12)
+    // Label based on raw sensitivity, not on a fixed magnitude threshold.
+    // raw sensitivity = weighted error / beta_fit. When this exceeds 1, the
+    // raw-AGOP conversion (dividing by beta_fit) blows up and only the weighted
+    // law is reliable. When it is well below 1, the raw bridge is stable.
+    let regime
+    if (rawSensitivity > 1) {
+      regime = "use weighted"
+    } else if (rawSensitivity > 0.1) {
+      regime = "transition"
+    } else {
+      regime = "raw OK"
+    }
     rows.push({
       x: residualEnergy,
       residualEnergy,
       betaFit,
       weightedError: state.weightedError,
       rawSensitivity,
-      regime: betaFit < 1e-3 ? "late weighted" : "raw-conditioned",
+      regime,
       isCurrent: i === 5 ? "current" : ""
     })
   }
@@ -502,7 +536,33 @@ function svgElement(name, attrs = {}) {
   return element
 }
 
-function renderPlot(rows, sweep) {
+// Append an SVG path that, when animate is true, reveals itself left-to-right
+// using stroke-dashoffset. We use pathLength="1" so we do not need to call
+// getTotalLength (which is unimplemented in JSDOM) and the math is portable.
+function appendAnimatedPath(svg, attrs, animate, durationMs) {
+  const path = svgElement("path", attrs)
+  if (animate) {
+    path.setAttribute("pathLength", "1")
+    path.setAttribute("stroke-dasharray", "1 1")
+    path.setAttribute("stroke-dashoffset", "1")
+  }
+  svg.appendChild(path)
+  if (animate) {
+    const ms = typeof durationMs === "number" ? durationMs : 700
+    const reveal = () => {
+      path.style.transition = "stroke-dashoffset " + ms + "ms cubic-bezier(0.22, 0.61, 0.36, 1)"
+      path.setAttribute("stroke-dashoffset", "0")
+    }
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(reveal))
+    } else {
+      setTimeout(reveal, 0)
+    }
+  }
+  return path
+}
+
+function renderPlot(rows, sweep, animate) {
   const svg = document.getElementById("live-plot")
   svg.innerHTML = ""
 
@@ -569,11 +629,11 @@ function renderPlot(rows, sweep) {
   // Lines, draw all series first so dots always sit on top
   sweep.series.forEach((series) => {
     const color = resolveColor(series.cssVar)
-    svg.appendChild(svgElement("path", {
+    appendAnimatedPath(svg, {
       d: linePath(rows, series.key, xScale, yScale),
       fill: "none", stroke: color, "stroke-width": 4,
       "stroke-linecap": "round", "stroke-linejoin": "round"
-    }))
+    }, animate, 400)
   })
 
   // Non-current dots
@@ -657,16 +717,16 @@ function renderTrajectoryLegend(metricKey) {
   lossSpan.append("loss_total (left axis)")
   legend.appendChild(lossSpan)
 
-  const overlay = trajectoryMetrics[metricKey]
-  if (overlay) {
+  const series = trajectorySeriesFor(metricKey)
+  series.forEach((s) => {
     const span = document.createElement("span")
     const swatch = document.createElement("span")
     swatch.className = "legend-swatch"
-    swatch.style.background = "var(" + overlay.cssVar + ")"
+    swatch.style.background = "var(" + s.cssVar + ")"
     span.appendChild(swatch)
-    span.append(overlay.label + " (right axis)")
+    span.append(s.label + " (right axis)")
     legend.appendChild(span)
-  }
+  })
 }
 
 function activeFamilyData() {
@@ -691,7 +751,7 @@ function configureScrubber(familyData) {
   scrubber.value = String(scrubberStepIndex)
 }
 
-function renderTrajectoryPlot(family, metricKey) {
+function renderTrajectoryPlot(family, metricKey, animate) {
   const svg = document.getElementById("trajectory-plot")
   svg.innerHTML = ""
   const configSpan = document.getElementById("trajectory-config")
@@ -718,6 +778,7 @@ function renderTrajectoryPlot(family, metricKey) {
   }
 
   const overlayInfo = trajectoryMetrics[metricKey]
+  const overlaySeries = trajectorySeriesFor(metricKey)
   const varY = familyData.var_y
 
   const width = 760
@@ -738,10 +799,15 @@ function renderTrajectoryPlot(family, metricKey) {
   const steps = history.map((row) => row.step)
   const lossValues = history.map((row) => row.loss_total).filter((value) => Number.isFinite(value) && value > 0)
   const overlayLog = overlayInfo && overlayInfo.logScale
-  const overlayPairs = history
-    .map((row) => ({ step: row.step, value: trajectoryRowMetric(row, metricKey, varY) }))
-    .filter((entry) => entry.value !== null && Number.isFinite(entry.value) && (!overlayLog || entry.value > 0))
-  const overlayValues = overlayPairs.map((entry) => entry.value)
+  // Compute pairs per overlay series. All series share the same y-axis so we
+  // can pool their values for the scale.
+  const seriesPairs = overlaySeries.map((s) => {
+    const pairs = history
+      .map((row) => ({ step: row.step, value: trajectoryRowMetric(row, s.key, varY) }))
+      .filter((entry) => entry.value !== null && Number.isFinite(entry.value) && (!overlayLog || entry.value > 0))
+    return { series: s, pairs }
+  })
+  const overlayValues = seriesPairs.flatMap((sp) => sp.pairs.map((entry) => entry.value))
 
   const xScale = plotScale(steps, left, left + plotWidth, false)
   const lossLogScale = plotScale(lossValues, 0, plotHeight, true)
@@ -775,6 +841,8 @@ function renderTrajectoryPlot(family, metricKey) {
     })
   }
 
+
+
   tickValues(steps, 6, false).forEach((tick) => {
     const x = xScale(tick)
     svg.appendChild(svgElement("line", {
@@ -792,18 +860,19 @@ function renderTrajectoryPlot(family, metricKey) {
     .filter((row) => Number.isFinite(row.loss_total) && row.loss_total > 0)
     .map((row, index) => (index === 0 ? "M" : "L") + " " + xScale(row.step).toFixed(2) + " " + lossY(row.loss_total).toFixed(2))
     .join(" ")
-  svg.appendChild(svgElement("path", {
+  appendAnimatedPath(svg, {
     d: lossPath, fill: "none", stroke: resolveColor("--muted"), "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round"
-  }))
+  }, animate, 500)
 
-  if (overlayInfo && overlayPairs.length > 0) {
-    const overlayPath = overlayPairs
+  seriesPairs.forEach((sp) => {
+    if (sp.pairs.length === 0) return
+    const overlayPath = sp.pairs
       .map((entry, index) => (index === 0 ? "M" : "L") + " " + xScale(entry.step).toFixed(2) + " " + overlayY(entry.value).toFixed(2))
       .join(" ")
-    svg.appendChild(svgElement("path", {
-      d: overlayPath, fill: "none", stroke: resolveColor(overlayInfo.cssVar), "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round"
-    }))
-  }
+    appendAnimatedPath(svg, {
+      d: overlayPath, fill: "none", stroke: resolveColor(sp.series.cssVar), "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round"
+    }, animate, 500)
+  })
 
   if (Number.isFinite(familyData.best_step)) {
     const x = xScale(familyData.best_step)
@@ -831,13 +900,14 @@ function renderTrajectoryPlot(family, metricKey) {
         fill: resolveColor("--muted"), stroke: resolveColor("--panel"), "stroke-width": 2
       }))
     }
-    const overlayValueAtScrub = trajectoryRowMetric(scrubRow, metricKey, varY)
-    if (overlayInfo && overlayValueAtScrub !== null && Number.isFinite(overlayValueAtScrub) && (!overlayLog || overlayValueAtScrub > 0)) {
+    overlaySeries.forEach((s) => {
+      const value = trajectoryRowMetric(scrubRow, s.key, varY)
+      if (value === null || !Number.isFinite(value) || (overlayLog && value <= 0)) return
       svg.appendChild(svgElement("circle", {
-        cx: xs, cy: overlayY(overlayValueAtScrub), r: 5,
-        fill: resolveColor(overlayInfo.cssVar), stroke: resolveColor("--panel"), "stroke-width": 2
+        cx: xs, cy: overlayY(value), r: 5,
+        fill: resolveColor(s.cssVar), stroke: resolveColor("--panel"), "stroke-width": 2
       }))
-    }
+    })
   }
 
   const xLabel = svgElement("text", {
@@ -853,12 +923,14 @@ function renderTrajectoryPlot(family, metricKey) {
   yLabelLeft.textContent = "loss_total (log)"
   svg.appendChild(yLabelLeft)
 
-  if (overlayInfo) {
+  if (overlayInfo && overlaySeries.length > 0) {
     const yLabelRight = svgElement("text", {
       x: width - 14, y: top + plotHeight / 2, "text-anchor": "middle", fill: "currentColor", "font-size": 11,
       transform: "rotate(90 " + (width - 14) + " " + (top + plotHeight / 2) + ")"
     })
-    yLabelRight.textContent = overlayInfo.label
+    yLabelRight.textContent = overlaySeries.length > 1
+      ? overlaySeries.map((s) => s.label).join(" vs ")
+      : overlaySeries[0].label
     svg.appendChild(yLabelRight)
   }
 }
@@ -1177,24 +1249,27 @@ function renderRegimeLocator(state) {
   svg.appendChild(svgElement("rect", { x: xMid, y: top, width: plotWidth / 2, height: plotHeight / 2, fill: rust }))
   svg.appendChild(svgElement("rect", { x: left, y: top, width: plotWidth, height: plotHeight, rx: 12, class: "plot-frame", fill: "none" }))
 
-  // Quadrant labels
-  const labels = [
-    { x: left + plotWidth * 0.25, y: yMid + plotHeight * 0.32, text: "Benign" },
-    { x: xMid + plotWidth * 0.25, y: yMid + plotHeight * 0.32, text: "Beta collapse" },
-    { x: left + plotWidth * 0.25, y: top + plotHeight * 0.18, text: "Pair failure" },
-    { x: xMid + plotWidth * 0.25, y: top + plotHeight * 0.18, text: "Compound" }
+  // Crosshair axes (drawn before labels so labels sit on top)
+  svg.appendChild(svgElement("line", { x1: xMid, x2: xMid, y1: top, y2: top + plotHeight, class: "grid-line" }))
+  svg.appendChild(svgElement("line", { x1: left, x2: left + plotWidth, y1: yMid, y2: yMid, class: "grid-line" }))
+
+  // Quadrant labels, anchored to the outer corner of each quadrant so the
+  // interior is free for live and reference dots.
+  const padX = 8
+  const padY = 14
+  const cornerLabels = [
+    { x: left + padX, y: top + plotHeight - padX, text: "Benign", anchor: "start" },
+    { x: left + plotWidth - padX, y: top + plotHeight - padX, text: "Beta collapse", anchor: "end" },
+    { x: left + padX, y: top + padY, text: "Pair failure", anchor: "start" },
+    { x: left + plotWidth - padX, y: top + padY, text: "Compound", anchor: "end" }
   ]
-  labels.forEach((l) => {
+  cornerLabels.forEach((l) => {
     const text = svgElement("text", {
-      x: l.x, y: l.y, "text-anchor": "middle", class: "regime-quadrant-label"
+      x: l.x, y: l.y, "text-anchor": l.anchor, class: "regime-quadrant-label"
     })
     text.textContent = l.text
     svg.appendChild(text)
   })
-
-  // Crosshair axes
-  svg.appendChild(svgElement("line", { x1: xMid, x2: xMid, y1: top, y2: top + plotHeight, class: "grid-line" }))
-  svg.appendChild(svgElement("line", { x1: left, x2: left + plotWidth, y1: yMid, y2: yMid, class: "grid-line" }))
 
   // Map state -> coordinates.
   // x: clamp signed betaError to [-1, 1] then map to [left, left+plotWidth]
@@ -1205,35 +1280,48 @@ function renderRegimeLocator(state) {
   const yNorm = Math.max(0, Math.min(1, (logProxy + 6) / 8)) // -6..2 visible range
   const yPos = top + (1 - yNorm) * plotHeight
 
-  // Reference dots for the three real families (benign quadrant, near origin)
+  // Reference dots for the three real families. Place them along a single row
+  // near the bottom of the Benign quadrant and label each dot with a 3-letter
+  // abbreviation to its right so labels never sit on top of the quadrant text.
   const familyKeys = ["isotropic", "anisotropic", "low_rank_signal"]
+  const familyAbbrev = { isotropic: "iso", anisotropic: "ani", low_rank_signal: "lr" }
   familyKeys.forEach((key, index) => {
     const fam = families[key]
-    const fx = left + plotWidth * (0.18 + index * 0.06)
+    const fx = left + plotWidth * (0.22 + index * 0.08)
     const logFam = Math.log10(Math.max(fam.pushedPair, 1e-12))
     const fyNorm = Math.max(0, Math.min(1, (logFam + 6) / 8))
     const fy = top + (1 - fyNorm) * plotHeight
     svg.appendChild(svgElement("circle", {
-      cx: fx, cy: fy, r: 5, fill: "rgba(111, 127, 18, 0.55)", stroke: resolveColor("--olive"), "stroke-width": 1.5
+      cx: fx, cy: fy, r: 4, fill: "rgba(111, 127, 18, 0.55)", stroke: resolveColor("--olive"), "stroke-width": 1.2
     }))
     const tag = svgElement("text", {
-      x: fx, y: fy - 8, "text-anchor": "middle", "font-size": 9, fill: resolveColor("--muted")
+      x: fx + 6, y: fy + 3, "text-anchor": "start", "font-size": 9, fill: resolveColor("--muted")
     })
-    tag.textContent = key.replace("_signal", "").replace("_", " ").slice(0, 10)
+    tag.textContent = familyAbbrev[key]
     svg.appendChild(tag)
   })
 
-  // Live position
+  // Live position dot, drawn last so it sits above every reference dot.
   const regime = classifyRegime(state)
   svg.appendChild(svgElement("circle", {
-    cx: xPos, cy: yPos, r: 9, fill: regime.color, stroke: resolveColor("--panel"), "stroke-width": 2.5
+    cx: xPos, cy: yPos, r: 8, fill: regime.color, stroke: resolveColor("--panel"), "stroke-width": 2.5
   }))
+  // Small "live" marker text next to the live dot, offset so it does not
+  // overlap the corner labels.
+  const liveLabelOffsetX = xPos > xMid ? -10 : 10
+  const liveLabelAnchor = xPos > xMid ? "end" : "start"
+  const liveTag = svgElement("text", {
+    x: xPos + liveLabelOffsetX, y: yPos + 3, "text-anchor": liveLabelAnchor,
+    "font-size": 10, "font-weight": 700, fill: resolveColor("--ink")
+  })
+  liveTag.textContent = "live"
+  svg.appendChild(liveTag)
 
   // Axis labels
   const xLabel = svgElement("text", {
-    x: left + plotWidth / 2, y: height - 16, "text-anchor": "middle", fill: "currentColor", "font-size": 11
+    x: left + plotWidth / 2, y: height - 14, "text-anchor": "middle", fill: "currentColor", "font-size": 11
   })
-  xLabel.textContent = "← benign beta · beta error · beta collapse →"
+  xLabel.textContent = "beta error (signed)"
   svg.appendChild(xLabel)
 
   const yLabel = svgElement("text", {
@@ -1342,7 +1430,10 @@ function renderFamilyText() {
   document.getElementById("family-summary").textContent = family.summary
 }
 
-function renderLive() {
+function renderLive(opts) {
+  // opts may be an event object (from addEventListener) or { animate: bool }.
+  // Default: do not animate. We opt in explicitly on selector / reset / load.
+  const animate = !!(opts && opts.animate === true)
   const state = currentState()
   const sweepKey = document.getElementById("sweep-select").value
   const sweep = sweeps[sweepKey]
@@ -1362,7 +1453,7 @@ function renderLive() {
   document.getElementById("sweep-description").textContent = sweep.description
   highlightActiveControls(sweep)
   renderLegend(sweep)
-  renderPlot(rows, sweep)
+  renderPlot(rows, sweep, animate)
   renderTable(rows, sweep)
   renderInsights(state)
   renderRegimeLocator(state)
@@ -1370,11 +1461,15 @@ function renderLive() {
   const metricKey = document.getElementById("trajectory-metric-select").value
   const familyData = activeFamilyData()
   configureScrubber(familyData)
-  renderTrajectoryPlot(family, metricKey)
+  renderTrajectoryPlot(family, metricKey, animate)
   renderTrajectoryLegend(metricKey)
   renderTrajectoryReadout(familyData, metricKey)
   renderAlignmentHeatmap()
   renderSpectrumPlot()
+}
+
+function renderLiveAnimated() {
+  renderLive({ animate: true })
 }
 
 function renderReportedFigure() {
@@ -1414,6 +1509,16 @@ function openFiguresDialog() {
     dialog.setAttribute("open", "")
   }
   renderReportedFigure()
+}
+
+function openHelpDialog() {
+  const dialog = document.getElementById("help-dialog")
+  if (!dialog) return
+  if (typeof dialog.showModal === "function") {
+    if (!dialog.open) dialog.showModal()
+  } else {
+    dialog.setAttribute("open", "")
+  }
 }
 
 function renderSelectors() {
@@ -1460,20 +1565,29 @@ function reset() {
   document.getElementById("pair-gain-slider").value = "-2"
   document.getElementById("gain-corr-slider").value = "0.05"
   document.getElementById("figure-select").value = "0"
-  document.getElementById("trajectory-metric-select").value = "r2"
+  document.getElementById("trajectory-metric-select").value = "raw_vs_weighted"
   scrubberPinnedToBest = true
   currentSnapshotKey = "late"
   document.querySelectorAll(".snapshot-button").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.snapshot === "late")
   })
-  renderLive()
+  renderLive({ animate: true })
   renderReportedFigure()
 }
 
 function bindEvents() {
-  [
-    "family-select",
-    "sweep-select",
+  // Selector changes are discrete events; animate the redraw to draw attention
+  // to the change.
+  const animatedSelectors = ["family-select", "sweep-select"]
+  animatedSelectors.forEach((id) => {
+    const control = document.getElementById(id)
+    control.addEventListener("input", renderLiveAnimated)
+    control.addEventListener("change", renderLiveAnimated)
+  })
+
+  // Slider drags fire many input events per second; do not animate per event,
+  // it would look stuttery and never settle.
+  const sliderIds = [
     "residual-slider",
     "stationarity-slider",
     "leverage-cv-slider",
@@ -1482,7 +1596,8 @@ function bindEvents() {
     "pair-defect-slider",
     "pair-gain-slider",
     "gain-corr-slider"
-  ].forEach((id) => {
+  ]
+  sliderIds.forEach((id) => {
     const control = document.getElementById(id)
     control.addEventListener("input", renderLive)
     control.addEventListener("change", renderLive)
@@ -1499,7 +1614,7 @@ function bindEvents() {
   document.getElementById("figure-select").addEventListener("change", renderReportedFigure)
   document.getElementById("reset-button").addEventListener("click", reset)
   document.getElementById("theme-button").addEventListener("click", toggleTheme)
-  document.getElementById("trajectory-metric-select").addEventListener("change", renderLive)
+  document.getElementById("trajectory-metric-select").addEventListener("change", renderLiveAnimated)
 
   const scrubber = document.getElementById("trajectory-scrubber")
   if (scrubber) {
@@ -1540,6 +1655,21 @@ function bindEvents() {
       })
     }
   }
+
+  const openHelp = document.getElementById("open-help")
+  if (openHelp) {
+    openHelp.addEventListener("click", openHelpDialog)
+  }
+  const helpDialog = document.getElementById("help-dialog")
+  if (helpDialog) {
+    const closeBtn = helpDialog.querySelector(".dialog-close")
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => {
+        if (typeof helpDialog.close === "function") helpDialog.close()
+        else helpDialog.removeAttribute("open")
+      })
+    }
+  }
 }
 
 function loadDatasets() {
@@ -1565,7 +1695,7 @@ function loadDatasets() {
       matrixSnapshots = { families: {} }
     })
 
-  return Promise.all([trajectoryPromise, matrixPromise]).then(() => renderLive())
+  return Promise.all([trajectoryPromise, matrixPromise]).then(() => renderLive({ animate: true }))
 }
 
 function main() {

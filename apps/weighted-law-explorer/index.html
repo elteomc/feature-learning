@@ -20,7 +20,10 @@
 
       <div class="sidebar-buttons">
         <button id="theme-button" class="theme-button" type="button">Use light theme</button>
-        <button id="open-figures" class="theme-button" type="button">Open static figures gallery</button>
+        <div class="sidebar-button-row">
+          <button id="open-figures" class="theme-button" type="button">Figures gallery</button>
+          <button id="open-help" class="theme-button" type="button">Help</button>
+        </div>
       </div>
 
       <section class="control-group">
@@ -265,6 +268,100 @@
         <img id="figure-image" alt="Selected weighted AGOP figure">
         <figcaption id="figure-caption"></figcaption>
       </figure>
+    </div>
+  </dialog>
+
+  <dialog id="help-dialog" class="help-dialog">
+    <form method="dialog" class="help-dialog-header">
+      <div>
+        <p class="eyebrow">Reference</p>
+        <h2>How to read this demo</h2>
+        <p>Plain language definitions for every panel, slider, and metric.</p>
+      </div>
+      <button class="dialog-close" value="cancel" aria-label="Close">Close</button>
+    </form>
+    <div class="help-dialog-body">
+      <section>
+        <h3>The story in one paragraph</h3>
+        <p>
+          For a two-layer regularized network <span class="math">f(x) = a<sup>T</sup> &phi;(B x)</span>, the learned feature matrix
+          <span class="math">H = B<sup>T</sup>B</span> tracks an AGOP-style gradient geometry. Near the end of training, the most
+          stable relation is the residual-weighted version <span class="math">H<sup>2</sup> &approx; &kappa;<sub>eff</sub> G&#771;</span>,
+          where <span class="math">G&#771;</span> is the AGOP weighted by squared residuals. The raw AGOP relation is an
+          intermediate-regime story that breaks down near interpolation when a bridge scalar &beta;<sub>fit</sub> collapses.
+        </p>
+      </section>
+
+      <section>
+        <h3>The panels</h3>
+        <ul>
+          <li><strong>Trajectory plot:</strong> real per-checkpoint history from one logged run per family. Loss on the left axis, your chosen overlay on the right. The dashed vertical line marks the best-stationarity checkpoint reported in the paper.</li>
+          <li><strong>Feature alignment heatmap:</strong> <span class="math">|B B<sub>*</sub><sup>T</sup>|</span> at the chosen snapshot. Bright cells mean a student hidden unit aligned with a teacher hidden unit.</li>
+          <li><strong>Spectrum overlay:</strong> top eigenvalues of <span class="math">H<sup>2</sup></span> versus <span class="math">&kappa;<sub>eff</sub> G&#771;</span> at the chosen snapshot. The two should overlap at convergence.</li>
+          <li><strong>Toy sweep plot:</strong> a closed-form analytic proxy that recomputes from the sliders. This is the pedagogical part. The active sliders for the current sweep are labeled in green under the title.</li>
+          <li><strong>Failure-map locator:</strong> places the current slider state in one of four algebraic regimes (Benign, Beta collapse, Pair failure, Compound).</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>The sliders, in plain language</h3>
+        <p class="help-note">
+          Sliders are dimmed when the current sweep does not use them in its main plot. Dimmed sliders still affect the failure-map locator and the live state. Switch the "Sweep over" dropdown to bring a slider group back into the main plot.
+        </p>
+        <div class="table-wrap">
+          <table class="help-table">
+            <thead>
+              <tr><th>Slider</th><th>Symbol</th><th>What it represents</th><th>Drives</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Residual energy</td><td>log<sub>10</sub> mean(r<sup>2</sup>)</td><td>How close the run is to interpolation. More negative means later in training.</td><td>regime sweep, &beta;<sub>fit</sub></td></tr>
+              <tr><td>Stationarity defect</td><td>log<sub>10</sub> &Vert;&part;L/&part;B&Vert;<sup>2</sup></td><td>How far the checkpoint is from satisfying the B-stationarity equation. Late checkpoints are tiny here.</td><td>regime sweep, weighted error</td></tr>
+              <tr><td>Leverage CV</td><td>log<sub>10</sub> CV(g<sub>i</sub>)</td><td>Coefficient of variation of hidden-gradient leverage across data points. Larger values mean a few points dominate.</td><td>beta sweep, beta error</td></tr>
+              <tr><td>Residual CV</td><td>log<sub>10</sub> CV(r<sub>i</sub><sup>2</sup>)</td><td>Coefficient of variation of squared residuals. Larger values mean residual energy is concentrated on a few points.</td><td>beta sweep, beta error</td></tr>
+              <tr><td>Correlation</td><td>corr(g<sub>i</sub>, r<sub>i</sub><sup>2</sup>)</td><td>Empirical correlation between leverage and squared residuals. The beta bridge breaks when these two correlate.</td><td>beta sweep, beta error</td></tr>
+              <tr><td>Pair defect</td><td>log<sub>10</sub> A<sub>pair</sub></td><td>Worst-case support-normalized pair geometry diagnostic. A conservative quantity that can be large even in benign runs.</td><td>pair sweep</td></tr>
+              <tr><td>Bad-direction gain</td><td>log<sub>10</sub> g<sub>bad</sub></td><td>Stationarity-induced gain on the worst pair direction. A large pair defect is harmless when this gain is small.</td><td>pair sweep, pushed pair</td></tr>
+              <tr><td>Defect-gain corr</td><td>corr(defect, gain)</td><td>Coupling between worst-direction defects and stationarity-induced gain. Positive values turn a worst-direction defect into a real risk.</td><td>pair sweep, pushed pair</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h3>The metrics, in plain language</h3>
+        <ul>
+          <li><strong>Weighted residual:</strong> <span class="math">&Vert;H<sup>2</sup> - &kappa;<sub>eff</sub> G&#771;&Vert;</span> relative to <span class="math">&Vert;H<sup>2</sup>&Vert;</span>. The headline success metric.</li>
+          <li><strong>Raw residual:</strong> <span class="math">&Vert;G - c<sub>eff</sub> H<sup>2</sup>&Vert;</span> with <span class="math">c<sub>eff</sub> = 1 / (&kappa;<sub>eff</sub> &beta;<sub>fit</sub>)</span>. The deterministic raw-AGOP relation. Diverges late in training as &beta;<sub>fit</sub> collapses.</li>
+          <li><strong>Raw vs weighted overlay:</strong> the central two-regime chart. Both residuals on the same axes show that the weighted relation is the stable late-training law while the raw relation degrades.</li>
+          <li><strong>Theorem bound ratio:</strong> observed weighted residual divided by the deterministic upper bound. Below 1 means the theorem covers the observation.</li>
+          <li><strong>Beta fit / mean(r<sup>2</sup>):</strong> tests whether the bridge from weighted AGOP to raw AGOP is just residual energy. Stays close to 1 in the reported runs.</li>
+          <li><strong>A<sub>pair</sub>:</strong> a worst-case support-normalized pair-geometry diagnostic. Important theoretically but conservative.</li>
+          <li><strong>Pushed pair error:</strong> pair error after applying the learned feature map. This is what actually enters the weighted law.</li>
+          <li><strong>R<sup>2</sup>:</strong> <span class="math">1 - mean(r<sup>2</sup>) / var(y)</span>. Standard explained-variance metric for model quality. Always shown in the readout cards regardless of the selected overlay.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>The four failure regimes</h3>
+        <ul>
+          <li><strong>Benign:</strong> both bridges hold. The weighted law tracks <span class="math">H<sup>2</sup></span> with controllable error. All three reported families land here.</li>
+          <li><strong>Beta collapse:</strong> &beta;<sub>fit</sub> is mis-tracking residual energy because leverage and residuals are correlated. The weighted-to-raw conversion is unreliable.</li>
+          <li><strong>Pair failure:</strong> a worst-pair direction also has high stationarity gain, so pushed pair error blows up.</li>
+          <li><strong>Compound:</strong> both bridges break at once.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Sweep table regime column</h3>
+        <p>
+          For the regime sweep, each row is a hypothetical checkpoint at a different residual energy. The "regime" column is
+          a label based on raw sensitivity, defined as weighted error divided by &beta;<sub>fit</sub>.
+        </p>
+        <ul>
+          <li><strong>raw OK:</strong> raw sensitivity is small, the raw AGOP conversion is stable here. Typical of intermediate training.</li>
+          <li><strong>use weighted:</strong> raw sensitivity is large, dividing by &beta;<sub>fit</sub> blows up. Stick to the weighted law. Typical of late training, near interpolation.</li>
+        </ul>
+      </section>
     </div>
   </dialog>
 

@@ -184,6 +184,17 @@ th {
   margin-bottom: 18px;
 }
 
+.sidebar-button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sidebar-button-row .theme-button {
+  width: 100%;
+  padding: 10px 8px;
+}
+
 .reset-button,
 .theme-button {
   border: 1px solid rgb(255 255 255 / 22%);
@@ -666,6 +677,113 @@ body[data-theme="dark"] .snapshot-button.active {
   .figures-dialog-body {
     grid-template-columns: 1fr;
   }
+}
+
+.help-dialog {
+  width: min(900px, calc(100vw - 40px));
+  max-height: calc(100vh - 80px);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 0;
+  box-shadow: var(--shadow);
+}
+
+.help-dialog::backdrop {
+  background: rgb(15 21 29 / 64%);
+  backdrop-filter: blur(2px);
+}
+
+.help-dialog-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.help-dialog-header h2 {
+  margin: 4px 0 6px;
+}
+
+.help-dialog-header p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 640px;
+}
+
+.help-dialog-body {
+  padding: 18px 22px 22px;
+  overflow: auto;
+  max-height: calc(100vh - 160px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.help-dialog-body section {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.help-dialog-body section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.help-dialog-body h3 {
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+
+.help-dialog-body p {
+  color: var(--ink);
+}
+
+.help-dialog-body ul {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.help-dialog-body li {
+  margin: 6px 0;
+  color: var(--ink);
+}
+
+.help-dialog-body li strong {
+  color: var(--ink);
+}
+
+.help-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--olive);
+  border-radius: 8px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.help-table {
+  font-size: 0.92rem;
+}
+
+.help-table th,
+.help-table td {
+  padding: 8px 10px;
+  vertical-align: top;
+}
+
+.help-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
 }
 
 [hidden] {

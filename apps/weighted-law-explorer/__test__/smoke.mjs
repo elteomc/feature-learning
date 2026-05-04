@@ -129,6 +129,7 @@ const criticalIds = [
   "regime-plot", "regime-status",
   "figure-select", "figure-image", "figure-caption", "figure-detail",
   "figures-dialog", "open-figures",
+  "help-dialog", "open-help",
   "theme-button", "reset-button"
 ];
 criticalIds.forEach((id) => check($(id), `missing #${id}`));
@@ -136,7 +137,7 @@ criticalIds.forEach((id) => check($(id), `missing #${id}`));
 // 2. Selectors are populated.
 check($("family-select").options.length === 3, "family-select should have 3 options");
 check($("sweep-select").options.length === 3, "sweep-select should have 3 options");
-check($("trajectory-metric-select").options.length === 5, "trajectory-metric-select should have 5 options");
+check($("trajectory-metric-select").options.length === 7, "trajectory-metric-select should have 7 options");
 
 const figureOptionCount = $("figure-select").querySelectorAll("option").length;
 check(figureOptionCount === 14, `figure-select should have 14 options, has ${figureOptionCount}`);
@@ -244,6 +245,14 @@ check(!dialog.open, "figures dialog should start closed");
 $("open-figures").dispatchEvent(new window.Event("click", { bubbles: true }));
 check(dialog.open === true || dialog.hasAttribute("open"), "figures dialog should open after click");
 
+// 9a. Help dialog opens via the sidebar button and contains explanatory copy.
+const helpDialog = $("help-dialog");
+check(!helpDialog.open, "help dialog should start closed");
+$("open-help").dispatchEvent(new window.Event("click", { bubbles: true }));
+check(helpDialog.open === true || helpDialog.hasAttribute("open"), "help dialog should open after click");
+check(helpDialog.querySelectorAll("section").length >= 4, "help dialog should have at least 4 sections");
+check(helpDialog.querySelector(".help-table"), "help dialog should include the slider reference table");
+
 // 10. Switching the figure select updates image src and caption.
 const figureSelect = $("figure-select");
 figureSelect.value = "5";
@@ -272,6 +281,22 @@ $("trajectory-metric-select").value = "r2";
 fireInput("trajectory-metric-select");
 const r2Found = Array.from($("trajectory-readout").children).some((c) => c.textContent.includes("R^2"));
 check(r2Found, "trajectory readout should include an R^2 card when R^2 is selected");
+
+// 10d. R^2 card should also be present even when R^2 is NOT the selected
+// overlay; it is a permanent diagnostic, not metric-gated.
+$("trajectory-metric-select").value = "gamma_tilde_eff_rel_h2";
+fireInput("trajectory-metric-select");
+const r2AlsoFound = Array.from($("trajectory-readout").children).some((c) => c.textContent.includes("R^2"));
+check(r2AlsoFound, "R^2 readout card should be present regardless of overlay metric");
+
+// 10e. raw_vs_weighted overlay draws two right-axis lines on the trajectory.
+$("trajectory-metric-select").value = "raw_vs_weighted";
+fireInput("trajectory-metric-select");
+const trajectoryPaths = ($("trajectory-plot").querySelectorAll("path") || []).length;
+check(trajectoryPaths >= 3, "raw_vs_weighted should draw the loss path plus two overlay paths (got " + trajectoryPaths + ")");
+const trajectoryLegendText = $("trajectory-legend").textContent.toLowerCase();
+check(trajectoryLegendText.includes("raw"), "trajectory legend should mention raw residual");
+check(trajectoryLegendText.includes("weighted"), "trajectory legend should mention weighted residual");
 
 // 11. Active-controls hint changes per sweep.
 $("sweep-select").value = "regime";

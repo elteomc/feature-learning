@@ -40,6 +40,8 @@ METRIC_KEYS = (
     "resid_mean_sq",
     "beta_fit",
     "gamma_tilde_eff_rel_h2",
+    "gamma_eff_rel",
+    "gamma_fit_rel",
     "pair_push_scaled_op",
     "theorem_bound_ratio",
     "stationarity_rel",
