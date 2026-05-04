@@ -11,6 +11,9 @@ and writes per-run plots plus JSON summaries.
 `make_final_figures.py` reads a compact summary and copies or creates figure
 candidates for the paper and demo.
 
+`run_failure_modes.py` runs deterministic failure-mode toy checks and optional
+trained smoke probes for the failure-mode taxonomy.
+
 ## Fast Smoke Run
 
 Use this when checking that all families, metrics, and plots are wired together:
@@ -27,6 +30,31 @@ python -m experiments.make_final_figures --results-dir results/tmp/smoke_fragmen
 
 The smoke run is not the final source of reported numbers. It is meant to verify
 that the full diagnostic pipeline runs end to end.
+
+## Failure-Mode Runs
+
+Run deterministic toy regimes:
+
+```bash
+python -m experiments.run_failure_modes --toy
+```
+
+This writes:
+
+- `results/failure_modes/toy/summary.json`
+- `paper/figures/failure_modes/beta_failure_toy.png`
+- `paper/figures/failure_modes/pair_failure_toy.png`
+- `paper/figures/failure_modes/regime_map.png`
+
+Run a short trained smoke probe:
+
+```bash
+python -m experiments.run_failure_modes --trained --fast --output-root results/tmp/failure_modes_smoke --figure-dir results/tmp/failure_modes_smoke_figures
+```
+
+The toy run is deterministic algebra. The trained run is empirical and should
+not be treated as final evidence until repeated with more seeds. The trained
+smoke also writes per-run comparison plots to the chosen `--figure-dir`.
 
 ## Data Families
 

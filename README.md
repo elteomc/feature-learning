@@ -40,7 +40,8 @@ residual-weight bridge scalar `beta_fit` collapses near interpolation.
 1. weighted deterministic proposition
 2. pair-isotropy diagnostic
 3. multi-seed confirmation
-4. presentation demo
+4. failure-mode taxonomy
+5. presentation demo
 
 ## What is proved versus tested
 
@@ -55,6 +56,8 @@ The proved algebra includes:
 - the beta identity showing `beta_fit` is a hidden-gradient-leverage-weighted
   residual average
 - high-gain pair closure as a conditional theorem
+- algebraic failure modes showing why universal raw AGOP claims need bridge
+  assumptions
 
 The open mathematical part is training geometry:
 
@@ -79,6 +82,12 @@ Build figures from a result directory:
 python -m experiments.make_final_figures --results-dir results/tmp/smoke_fragment1 --outdir results/tmp/smoke_fragment1_figures
 ```
 
+Run deterministic failure-mode toy checks:
+
+```bash
+python -m experiments.run_failure_modes --toy
+```
+
 Run the static demo:
 
 ```bash
@@ -94,7 +103,8 @@ http://localhost:8000/apps/weighted-law-explorer/
 ## Reading Order
 
 For the math story, start with `paper/section_weighted_law.tex`, then read
-`notes/theorem_sketch.md` for the fuller theorem sketches.
+`notes/theorem_sketch.md` for the fuller theorem sketches. For failure regimes,
+read `notes/failure_modes.md` and `paper/section_failure_modes.tex`.
 
 For the experiment story, start with `notes/experiment_log.md`, then
 `experiments/README.md`, then `paper/figures/README.md`.

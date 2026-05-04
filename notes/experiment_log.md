@@ -214,3 +214,41 @@ pipeline.
 Before promoting this suite to final evidence, run more seeds, choose the main
 figure subset, and copy the selected plots into `paper/figures/` with an updated
 manifest and figure guide.
+
+## Failure-mode taxonomy checks
+
+The failure-mode branch adds deterministic algebraic checks for the taxonomy in
+`notes/failure_modes.md`.
+
+The toy command is:
+
+```text
+python -m experiments.run_failure_modes --toy
+```
+
+It writes a JSON summary to:
+
+```text
+results/failure_modes/toy/summary.json
+```
+
+and exploratory figures to:
+
+```text
+paper/figures/failure_modes/
+```
+
+These figures are algebraic sanity checks. They show beta overestimation,
+beta underestimation, high-gain pair failure, and conservative global pair
+diagnostics. They are not trained-network evidence.
+
+A short trained smoke probe can be run with:
+
+```text
+python -m experiments.run_failure_modes --trained --fast --output-root results/tmp/failure_modes_smoke --figure-dir results/tmp/failure_modes_smoke_figures
+```
+
+Those trained outputs should remain in `results/tmp/` until repeated with more
+seeds and final plotting choices. The trained smoke writes per-run comparison
+plots to the supplied `--figure-dir`, but those are development plots unless
+they are regenerated for a final run.

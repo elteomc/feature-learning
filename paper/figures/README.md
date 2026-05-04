@@ -77,4 +77,7 @@ story. The larger smoke-run figure set is useful for development, but it should
 not be treated as final evidence until those runs are repeated with broader
 seeds and final plotting choices.
 
+Failure-mode toy figures live in `failure_modes/`. They are deterministic
+algebraic checks for the taxonomy, not trained-network evidence.
+
 For the latest smoke commands and run status, see `notes/experiment_log.md`.

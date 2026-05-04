@@ -99,70 +99,80 @@ const claims = [
 const figureBase = "../../paper/figures/"
 
 const figures = [
+  // Main evidence
   {
     label: "Weighted residual by family",
     file: "weighted_residual_by_family.png",
-    caption: "Weighted-law residual at best-stationarity checkpoints"
+    caption: "Weighted-law residual at best-stationarity checkpoints. Lower is better; all three families land well below 0.01."
   },
   {
     label: "Theorem bound ratio by family",
     file: "theorem_bound_ratio_by_family.png",
-    caption: "Observed weighted residual divided by the deterministic bound"
+    caption: "Observed weighted residual divided by the deterministic bound. Values below 1 mean the theorem covers the observed error — the bound is conservative in all three families."
   },
   {
     label: "Beta over residual energy",
     file: "beta_over_residual_energy_by_family.png",
-    caption: "Beta_fit tracks mean residual squared across all checkpoints"
+    caption: "beta_fit / mean(r^2) across all logged checkpoints. Points near 1 confirm that hidden-gradient leverage does not strongly bias the weighted average away from ordinary residual energy."
   },
   {
     label: "Pushed pair error",
     file: "pushed_pair_error_by_family.png",
-    caption: "Pair error after pushing through the learned feature map"
+    caption: "Pair error after pushing through the learned B map. This is small in all families even when the raw support-normalized A_pair diagnostic is large."
   },
-  {
-    label: "Symmetric relative error",
-    file: "symmetric_relative_error_by_family.png",
-    caption: "Secondary relative weighted-law diagnostic"
-  },
-  {
-    label: "Bridge operator error",
-    file: "bridge_operator_error_by_family.png",
-    caption: "Relative Frobenius error of M_tilde minus beta_fit M"
-  },
-  {
-    label: "Pair gain contribution",
-    file: "pair_gain_weighted_contribution_by_family.png",
-    caption: "Largest gain-weighted pair contribution at best-stationarity checkpoints"
-  },
-  {
-    label: "Pair gain correlation",
-    file: "pair_gain_correlation_by_family.png",
-    caption: "Absolute correlation between pair defect size and stationarity gain"
-  },
+  // Trajectories
   {
     label: "Isotropic trajectory",
     file: "isotropic_two_regime_trajectory.png",
-    caption: "Two-regime trajectory for isotropic seed 0"
+    caption: "Two-regime trajectory for isotropic seed 0. Shows the raw-conditioned phase transitioning to the late weighted phase as training progresses."
   },
   {
     label: "Anisotropic trajectory",
     file: "anisotropic_two_regime_trajectory.png",
-    caption: "Two-regime trajectory for anisotropic seed 0"
+    caption: "Two-regime trajectory for anisotropic seed 0. The same regime transition appears when the input covariance has a non-trivial spectrum."
   },
   {
     label: "Low-rank trajectory",
     file: "low_rank_signal_two_regime_trajectory.png",
-    caption: "Two-regime trajectory for low-rank signal seed 0"
+    caption: "Two-regime trajectory for low-rank signal seed 0. Checks the trajectory story when the signal lives in a low-dimensional planted subspace."
+  },
+  // Beta collapse
+  {
+    label: "Isotropic beta collapse",
+    file: "isotropic_beta_collapse.png",
+    caption: "beta_fit shrinking as the isotropic network approaches interpolation. This collapse makes the raw AGOP law numerically delicate near the end of training."
   },
   {
-    label: "Isotropic phase diagram",
-    file: "isotropic_phase_diagram.png",
-    caption: "Raw quality compared with weighted quality along training"
+    label: "Anisotropic beta collapse",
+    file: "anisotropic_beta_collapse.png",
+    caption: "Beta collapse for the anisotropic family. Confirms the same mechanism under a non-trivial input covariance."
   },
   {
-    label: "Isotropic pair gain diagnostics",
-    file: "isotropic_pair_gain_diagnostics.png",
-    caption: "Worst pair defect compared with stationarity-gain-weighted contributions"
+    label: "Low-rank beta collapse",
+    file: "low_rank_signal_beta_collapse.png",
+    caption: "Beta collapse for the low-rank signal family. Checks whether the bridge remains interpretable when signal is concentrated in a subspace."
+  },
+  // Secondary diagnostic
+  {
+    label: "Symmetric relative error",
+    file: "symmetric_relative_error_by_family.png",
+    caption: "Symmetric relative weighted-law diagnostic. A scale-normalized view; useful for honest reporting but not the primary claim."
+  },
+  // Failure-mode taxonomy (algebraic, not trained networks)
+  {
+    label: "Failure regime map",
+    file: "failure_modes/regime_map.png",
+    caption: "Taxonomy of failure regimes in the (beta-axis, pair-axis) plane. The three empirical families land in the benign quadrant (top-left). This is a deterministic algebraic picture."
+  },
+  {
+    label: "Beta failure — toy example",
+    file: "failure_modes/beta_failure_toy.png",
+    caption: "Algebraic toy example of beta overestimation and underestimation. A single high-leverage sample pulls beta_fit above mean(r^2) when it has high residual, and below it when it has low residual."
+  },
+  {
+    label: "Pair failure — toy example",
+    file: "failure_modes/pair_failure_toy.png",
+    caption: "Algebraic toy example of high-gain vs low-gain pair geometry. The same global A_pair value produces large pushed error in one case and small pushed error in another, depending on whether the bad direction is high-gain."
   }
 ]
 
@@ -305,8 +315,12 @@ function renderFigure() {
   const figure = figures[index]
   const image = document.getElementById("figure-image")
   const caption = document.getElementById("figure-caption")
+  image.alt = figure.caption
   image.src = figureBase + figure.file
   caption.textContent = figure.caption
+  image.onerror = () => {
+    caption.textContent = "Figure not found at the current relative path: " + figure.file
+  }
 }
 
 function pow10FromSlider(id) {
