@@ -31,20 +31,34 @@ figures from `paper/figures/`.
 - `A_pair` is a conservative support-normalized diagnostic, while pushed pair
   error is closer to the observed weighted law.
 
-## Real trajectory data
+## Real data files
 
-The "Real training trajectory" panel reads `data/trajectories.json`, a compact
-slice of the per-checkpoint history files in `results/runs/...`. Rebuild it
-after a fresh run:
+The dashboard reads two precomputed JSON files at startup. Both live under
+`data/` and are small enough to ship statically.
+
+`data/trajectories.json` is a compact slice of the per-checkpoint history
+files in `results/runs/...`. It contains `step`, `loss_total`, `resid_rms`,
+`beta_fit`, `gamma_tilde_eff_rel_h2`, `pair_push_scaled_op`,
+`theorem_bound_ratio`, and `var_y` for one representative seed per family.
+The `var_y` field is what lets the demo plot R-squared as
+`1 - resid_mean_sq / var_y` without storing R-squared per checkpoint.
 
 ```bash
 python apps/weighted-law-explorer/build_trajectories.py
 ```
 
-The output is around 230 KB and contains `step`, `loss_total`, `resid_rms`,
-`beta_fit`, `gamma_tilde_eff_rel_h2`, `pair_push_scaled_op`,
-`theorem_bound_ratio`, and a few related metrics for one representative seed
-per family.
+`data/matrix_snapshots.json` reruns SGD for one seed per family and captures
+three snapshots (init, mid, late). Each snapshot stores the student feature
+gram matrix `B B^T`, the alignment matrix `B B_*^T`, and the top eigenvalues
+of `H squared` and `kappa_eff times G_tilde`. These power the feature
+alignment heatmap and the spectrum overlay.
+
+```bash
+python apps/weighted-law-explorer/build_matrix_snapshots.py
+```
+
+Both scripts depend on the project source under `src/`, so run them from the
+repository root with `PYTHONPATH=.` if needed.
 
 ## Headless smoke test
 

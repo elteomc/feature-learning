@@ -46,19 +46,33 @@ const dom = new JSDOM(html, {
 
 const { window } = dom;
 
-// app.js uses fetch("data/trajectories.json"). Polyfill from disk so JSDOM does
-// not need an HTTP server.
+// app.js uses fetch("data/<file>.json"). Polyfill from disk so JSDOM does not
+// need an HTTP server.
 const trajectoryPayload = readFileSync(resolve(appRoot, "data", "trajectories.json"), "utf-8");
+const matrixPayload = readFileSync(resolve(appRoot, "data", "matrix_snapshots.json"), "utf-8");
 window.fetch = async (url) => {
   if (typeof url === "string" && url.endsWith("trajectories.json")) {
-    return {
-      ok: true,
-      status: 200,
-      json: async () => JSON.parse(trajectoryPayload)
-    };
+    return { ok: true, status: 200, json: async () => JSON.parse(trajectoryPayload) };
+  }
+  if (typeof url === "string" && url.endsWith("matrix_snapshots.json")) {
+    return { ok: true, status: 200, json: async () => JSON.parse(matrixPayload) };
   }
   return { ok: false, status: 404, json: async () => ({}) };
 };
+
+// JSDOM 22 does not implement HTMLDialogElement.showModal. Polyfill the bits
+// we use so the open-figures dialog can be exercised in tests.
+const DialogProto = window.HTMLDialogElement && window.HTMLDialogElement.prototype;
+if (DialogProto && typeof DialogProto.showModal !== "function") {
+  DialogProto.showModal = function () {
+    this.setAttribute("open", "");
+    this.open = true;
+  };
+  DialogProto.close = function () {
+    this.removeAttribute("open");
+    this.open = false;
+  };
+}
 
 // Patch localStorage to not throw under file:// in some configs.
 let storage = {};
@@ -108,8 +122,13 @@ const criticalIds = [
   "sweep-table-head", "sweep-table-body", "sweep-table-note",
   "summary-table", "family-title", "family-summary",
   "trajectory-plot", "trajectory-metric-select", "trajectory-legend",
-  "trajectory-config", "regime-plot", "regime-status",
+  "trajectory-config", "trajectory-scrubber", "trajectory-scrubber-output",
+  "trajectory-readout",
+  "alignment-heatmap", "alignment-meta",
+  "spectrum-plot", "spectrum-legend",
+  "regime-plot", "regime-status",
   "figure-select", "figure-image", "figure-caption", "figure-detail",
+  "figures-dialog", "open-figures",
   "theme-button", "reset-button"
 ];
 criticalIds.forEach((id) => check($(id), `missing #${id}`));
@@ -117,17 +136,25 @@ criticalIds.forEach((id) => check($(id), `missing #${id}`));
 // 2. Selectors are populated.
 check($("family-select").options.length === 3, "family-select should have 3 options");
 check($("sweep-select").options.length === 3, "sweep-select should have 3 options");
-check($("trajectory-metric-select").options.length === 4, "trajectory-metric-select should have 4 options");
+check($("trajectory-metric-select").options.length === 5, "trajectory-metric-select should have 5 options");
 
 const figureOptionCount = $("figure-select").querySelectorAll("option").length;
 check(figureOptionCount === 14, `figure-select should have 14 options, has ${figureOptionCount}`);
 const optgroups = $("figure-select").querySelectorAll("optgroup");
 check(optgroups.length >= 4, `figure-select should have >=4 optgroups, has ${optgroups.length}`);
 
-// 3. After init, the live plot should have rendered.
+const snapshotButtons = document.querySelectorAll(".snapshot-button");
+check(snapshotButtons.length === 3, `expected 3 snapshot buttons, got ${snapshotButtons.length}`);
+
+// 3. After init, every key plot region has rendered.
 check($("live-plot").innerHTML.length > 0, "live-plot is empty after init");
 check($("trajectory-plot").innerHTML.length > 0, "trajectory-plot is empty after init");
 check($("regime-plot").innerHTML.length > 0, "regime-plot is empty after init");
+check($("alignment-heatmap").innerHTML.length > 0, "alignment-heatmap is empty after init");
+check($("spectrum-plot").innerHTML.length > 0, "spectrum-plot is empty after init");
+check($("trajectory-readout").children.length >= 4, "trajectory readout should have at least 4 cards");
+check($("alignment-meta").textContent.includes("max"), "alignment meta should report max value");
+check($("spectrum-legend").children.length >= 2, "spectrum legend should have entries");
 check($("insight-cards").children.length >= 4, "expected at least 4 insight cards");
 check($("summary-table").children.length === 3, "summary-table should have 3 family rows");
 check($("plot-legend").children.length >= 2, "plot legend should have entries");
@@ -211,12 +238,11 @@ const themeAfter = document.body.dataset.theme;
 check(themeBefore !== themeAfter, "theme toggle did not change data-theme");
 $("theme-button").dispatchEvent(new window.Event("click", { bubbles: true }));
 
-// 9. View toggle to reported figures.
-const reportedView = $("reported-view") || document.getElementById("reported-view");
-check(reportedView.hidden === true, "reported view should start hidden");
-const reportedButton = document.querySelector('.view-button[data-view="reported"]');
-reportedButton.dispatchEvent(new window.Event("click", { bubbles: true }));
-check(reportedView.hidden === false, "reported view should become visible after click");
+// 9. Static figures dialog opens via the sidebar button.
+const dialog = $("figures-dialog");
+check(!dialog.open, "figures dialog should start closed");
+$("open-figures").dispatchEvent(new window.Event("click", { bubbles: true }));
+check(dialog.open === true || dialog.hasAttribute("open"), "figures dialog should open after click");
 
 // 10. Switching the figure select updates image src and caption.
 const figureSelect = $("figure-select");
@@ -224,6 +250,28 @@ figureSelect.value = "5";
 fireInput("figure-select");
 check($("figure-image").src.includes(".png"), "figure-image src should reference a .png");
 check($("figure-caption").textContent.length > 0, "figure-caption should have text");
+
+// 10a. Snapshot buttons drive the heatmap and spectrum.
+const heatBefore = $("alignment-heatmap").innerHTML;
+document.querySelector('.snapshot-button[data-snapshot="init"]').dispatchEvent(new window.Event("click", { bubbles: true }));
+check($("alignment-heatmap").innerHTML !== heatBefore, "snapshot toggle should change the alignment heatmap");
+check($("alignment-heatmap").innerHTML.includes("init"), "alignment heatmap title should reference init snapshot");
+document.querySelector('.snapshot-button[data-snapshot="late"]').dispatchEvent(new window.Event("click", { bubbles: true }));
+check($("alignment-heatmap").innerHTML.includes("late"), "alignment heatmap title should reference late snapshot after switching back");
+
+// 10b. Step scrubber updates readout and trajectory plot.
+const trajectoryBeforeScrub = $("trajectory-plot").innerHTML;
+const scrubber = $("trajectory-scrubber");
+scrubber.value = "5";
+scrubber.dispatchEvent(new window.Event("input", { bubbles: true }));
+check($("trajectory-plot").innerHTML !== trajectoryBeforeScrub, "scrubber should re-render trajectory plot");
+check($("trajectory-scrubber-output").textContent.includes("step"), "scrubber output should mention step");
+
+// 10c. R^2 metric option is present and produces values.
+$("trajectory-metric-select").value = "r2";
+fireInput("trajectory-metric-select");
+const r2Found = Array.from($("trajectory-readout").children).some((c) => c.textContent.includes("R^2"));
+check(r2Found, "trajectory readout should include an R^2 card when R^2 is selected");
 
 // 11. Active-controls hint changes per sweep.
 $("sweep-select").value = "regime";
@@ -249,7 +297,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("PASS — exercised", criticalIds.length, "DOM hooks and 3 sweeps × " + sliderIds.length + " sliders.");
+console.log("PASS, exercised", criticalIds.length, "DOM hooks and 3 sweeps x " + sliderIds.length + " sliders.");
 console.log("Slider responsiveness:");
 Object.entries(sliderResponses).forEach(([id, ok]) => {
   console.log("  " + id + ": " + (ok ? "responds" : "INERT"));

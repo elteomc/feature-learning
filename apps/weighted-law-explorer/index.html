@@ -18,11 +18,10 @@
         </p>
       </div>
 
-      <div class="view-toggle" role="group" aria-label="View mode">
-        <button class="view-button active" data-view="live" type="button">Live lab</button>
-        <button class="view-button" data-view="reported" type="button">Reported figures</button>
+      <div class="sidebar-buttons">
+        <button id="theme-button" class="theme-button" type="button">Use light theme</button>
+        <button id="open-figures" class="theme-button" type="button">Open static figures gallery</button>
       </div>
-      <button id="theme-button" class="theme-button" type="button">Use light theme</button>
 
       <section class="control-group">
         <h2>Run Context</h2>
@@ -87,7 +86,6 @@
         </div>
       </section>
 
-      <p class="controls-note" aria-live="polite">These controls apply to Live lab only.</p>
       <button id="reset-button" class="reset-button" type="button">Reset controls</button>
     </aside>
 
@@ -108,11 +106,79 @@
         </div>
       </header>
 
-      <section id="live-view">
-        <section class="panel plot-panel">
+      <section class="panel plot-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Trained network, real run</p>
+            <h2 id="trajectory-title">How residual and weighted-law residual evolve during training</h2>
+            <p id="trajectory-description">
+              From the logged run for the selected family
+              (<span id="trajectory-config"></span>). Pick a metric to overlay
+              on the loss curve. The dashed vertical line marks the
+              best-stationarity checkpoint reported in the paper. The scrubber
+              below lets you read off any step.
+            </p>
+            <div class="trajectory-metric">
+              <label for="trajectory-metric-select">Overlay metric</label>
+              <select id="trajectory-metric-select"></select>
+            </div>
+          </div>
+          <div class="legend" id="trajectory-legend"></div>
+        </div>
+        <svg id="trajectory-plot" viewBox="0 0 760 320" role="img" aria-labelledby="trajectory-title"></svg>
+        <div class="scrubber-row">
+          <label for="trajectory-scrubber">Step scrubber</label>
+          <input id="trajectory-scrubber" type="range" min="0" max="100" step="1" value="0">
+          <output id="trajectory-scrubber-output"></output>
+        </div>
+        <div id="trajectory-readout" class="trajectory-readout"></div>
+      </section>
+
+      <section class="panel split">
+        <div class="alignment-panel">
+          <div>
+            <p class="eyebrow">Trained network, real run</p>
+            <h2>Feature alignment heatmap</h2>
+            <p>
+              Each cell is the absolute alignment between one student hidden
+              unit (rows, m=16) and one teacher hidden unit (columns, m_teacher=4),
+              given by |B B_*^T|. At init the matrix is essentially noise. As
+              training progresses, a small number of student rows light up,
+              showing that the network has discovered the teacher's hidden
+              directions.
+            </p>
+          </div>
+          <div class="snapshot-toggle" role="group" aria-label="Checkpoint">
+            <button class="snapshot-button" data-snapshot="init" type="button">Init</button>
+            <button class="snapshot-button" data-snapshot="mid" type="button">Mid</button>
+            <button class="snapshot-button active" data-snapshot="late" type="button">Late</button>
+          </div>
+          <svg id="alignment-heatmap" viewBox="0 0 360 360" role="img" aria-label="alignment heatmap"></svg>
+          <p class="alignment-meta" id="alignment-meta"></p>
+        </div>
+
+        <div class="spectrum-panel">
+          <div>
+            <p class="eyebrow">Trained network, real run</p>
+            <h2>Spectrum overlay</h2>
+            <p>
+              Top eigenvalues of <span class="math">H<sup>2</sup></span> versus
+              <span class="math">&kappa;<sub>eff</sub> &middot; G&#771;</span> at
+              the selected checkpoint. The weighted law predicts that these two
+              spectra coincide at convergence. Try switching between Init, Mid,
+              and Late on the heatmap on the left.
+            </p>
+          </div>
+          <svg id="spectrum-plot" viewBox="0 0 380 280" role="img" aria-label="spectrum overlay"></svg>
+          <div class="legend" id="spectrum-legend"></div>
+        </div>
+      </section>
+
+      <section class="panel split">
+        <div>
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">Generated sweep</p>
+              <p class="eyebrow">Toy model, slider-driven</p>
               <h2 id="sweep-title"></h2>
               <p id="sweep-description"></p>
               <p id="sweep-active-controls" class="active-controls"></p>
@@ -120,97 +186,52 @@
             <div class="legend" id="plot-legend"></div>
           </div>
           <svg id="live-plot" viewBox="0 0 760 360" role="img" aria-labelledby="sweep-title"></svg>
-        </section>
+        </div>
 
-        <section class="panel split">
-          <div class="trajectory-panel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">Real training trajectory</p>
-                <h2 id="trajectory-title">Trained network: residual versus weighted-law residual</h2>
-                <p id="trajectory-description">
-                  This panel is from the actual logged run for the selected family
-                  (<span id="trajectory-config"></span>). Pick a metric to overlay
-                  on the loss curve. The vertical line is the best-stationarity
-                  checkpoint reported in the paper.
-                </p>
-              </div>
-              <div class="trajectory-metric">
-                <label for="trajectory-metric-select">Overlay metric</label>
-                <select id="trajectory-metric-select"></select>
-              </div>
-            </div>
-            <svg id="trajectory-plot" viewBox="0 0 760 320" role="img" aria-labelledby="trajectory-title"></svg>
-            <div class="legend" id="trajectory-legend"></div>
-          </div>
-
-          <div class="regime-locator">
-            <p class="eyebrow">Where am I?</p>
-            <h2>Failure-map locator</h2>
-            <p>
-              The current sliders place the run in one of four algebraic regimes
-              from the failure-mode taxonomy. The empirical families land near
-              the benign quadrant.
-            </p>
-            <svg id="regime-plot" viewBox="0 0 360 320" role="img" aria-labelledby="regime-status"></svg>
-            <p id="regime-status" class="regime-status"></p>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="insight-grid" id="insight-cards"></div>
-        </section>
-
-        <section class="panel split">
-          <div>
-            <h2>Sweep Data</h2>
-            <p id="sweep-table-note" class="table-note"></p>
-            <div class="table-wrap">
-              <table>
-                <thead id="sweep-table-head"></thead>
-                <tbody id="sweep-table-body"></tbody>
-              </table>
-            </div>
-          </div>
-          <div>
-            <h2>Family Benchmarks</h2>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Family</th>
-                    <th>Weighted residual</th>
-                    <th>Beta / mean r^2</th>
-                    <th>Pushed pair</th>
-                  </tr>
-                </thead>
-                <tbody id="summary-table"></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
+        <div class="regime-locator">
+          <p class="eyebrow">Where am I?</p>
+          <h2>Failure-map locator</h2>
+          <p>
+            The current sliders place the run in one of four algebraic regimes
+            from the failure-mode taxonomy. The empirical families land near
+            the benign quadrant.
+          </p>
+          <svg id="regime-plot" viewBox="0 0 360 320" role="img" aria-labelledby="regime-status"></svg>
+          <p id="regime-status" class="regime-status"></p>
+        </div>
       </section>
 
-      <section id="reported-view" hidden>
-        <section class="panel reported-panel">
-          <div>
-            <p class="eyebrow">Static evidence</p>
-            <h2>Reported Figures</h2>
-            <p>
-              These figures are tracked paper and demo artifacts. They are kept
-              separate from the live lab so the interactive view stays smooth,
-              while the static view remains a faithful record of experiment
-              outputs.
-            </p>
-            <label for="figure-select">Figure</label>
-            <select id="figure-select"></select>
-            <div id="figure-detail" class="figure-detail"></div>
+      <section class="panel">
+        <div class="insight-grid" id="insight-cards"></div>
+      </section>
+
+      <section class="panel split">
+        <div>
+          <h2>Sweep data</h2>
+          <p id="sweep-table-note" class="table-note"></p>
+          <div class="table-wrap">
+            <table>
+              <thead id="sweep-table-head"></thead>
+              <tbody id="sweep-table-body"></tbody>
+            </table>
           </div>
-          <figure>
-            <img id="figure-image" alt="Selected weighted AGOP figure">
-            <figcaption id="figure-caption"></figcaption>
-          </figure>
-        </section>
+        </div>
+        <div>
+          <h2>Family benchmarks</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Family</th>
+                  <th>Weighted residual</th>
+                  <th>Beta / mean r^2</th>
+                  <th>Pushed pair</th>
+                </tr>
+              </thead>
+              <tbody id="summary-table"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <template id="insight-template">
@@ -222,6 +243,30 @@
       </template>
     </main>
   </div>
+
+  <dialog id="figures-dialog" class="figures-dialog">
+    <form method="dialog" class="figures-dialog-header">
+      <p class="eyebrow">Static evidence, paper figures</p>
+      <h2>Reported figures gallery</h2>
+      <p>
+        These are tracked paper artifacts. They are kept here as a reference
+        record and are not interactive. The live panels above are the primary
+        view.
+      </p>
+      <button class="dialog-close" value="cancel" aria-label="Close">Close</button>
+    </form>
+    <div class="figures-dialog-body">
+      <div class="figures-dialog-controls">
+        <label for="figure-select">Figure</label>
+        <select id="figure-select"></select>
+        <div id="figure-detail" class="figure-detail"></div>
+      </div>
+      <figure>
+        <img id="figure-image" alt="Selected weighted AGOP figure">
+        <figcaption id="figure-caption"></figcaption>
+      </figure>
+    </div>
+  </dialog>
 
   <script src="app.js"></script>
 </body>

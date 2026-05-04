@@ -44,7 +44,7 @@ const sweeps = {
   regime: {
     label: "Residual energy",
     title: "Test of raw sensitivity versus residual energy",
-    description: "The x-axis is centered on the Residual energy slider. Raw sensitivity = weighted error / beta fit; it spikes once beta fit collapses below the weighted error.",
+    description: "The x-axis is centered on the Residual energy slider. Raw sensitivity equals weighted error over beta fit, which spikes once beta fit collapses below the weighted error.",
     xLabel: "residual energy",
     logScale: true,
     tableNote: "Each row is a hypothetical checkpoint at a different residual energy. Stationarity defect and pair compression are held fixed, so raw sensitivity varies purely because beta fit scales with residual energy.",
@@ -65,7 +65,7 @@ const sweeps = {
   beta: {
     label: "Beta correlation",
     title: "Beta identity sweep",
-    description: "The x-axis is centered on the Correlation slider. Beta error = corr × leverage CV × residual CV. Increase Leverage CV or Residual CV to grow the height of the curves.",
+    description: "The x-axis is centered on the Correlation slider. Beta error equals corr times leverage CV times residual CV. Increase Leverage CV or Residual CV to grow the height of the curves.",
     xLabel: "correlation",
     logScale: false,
     tableNote: "Each row is a possible leverage-residual correlation. Leverage CV and residual CV are fixed by the sidebar, so the table focuses on the beta error implied by changing correlation.",
@@ -106,21 +106,28 @@ const sweeps = {
 }
 
 const trajectoryMetrics = {
+  r2: {
+    label: "R-squared (1 - resid_mean_sq / var_y)",
+    description: "The fraction of label variance the model explains. Computed live from var(y) of each family.",
+    logScale: false,
+    cssVar: "--series-a",
+    derived: true
+  },
   gamma_tilde_eff_rel_h2: {
     label: "Weighted-law relative residual",
-    description: "γ̃_eff_rel_h2: weighted residual normalized by ||H²||. The theorem says this should be small at late training.",
+    description: "Weighted residual normalized by the spectral norm of H squared. The theorem says this should shrink late in training.",
     logScale: true,
     cssVar: "--series-a"
   },
   beta_fit: {
     label: "Beta fit",
-    description: "β_fit: hidden-leverage weighted average of squared residuals. Tracks mean residual squared.",
+    description: "Hidden-leverage weighted average of squared residuals. Should track mean residual squared.",
     logScale: true,
     cssVar: "--series-b"
   },
   theorem_bound_ratio: {
     label: "Theorem bound ratio",
-    description: "Observed weighted residual / deterministic theorem bound. Below 1 means the theorem covers the observed error.",
+    description: "Observed weighted residual divided by the deterministic theorem bound. Values below 1 mean the theorem covers the observed error.",
     logScale: false,
     cssVar: "--series-c"
   },
@@ -133,6 +140,20 @@ const trajectoryMetrics = {
 }
 
 let trajectoryData = null
+let matrixSnapshots = null
+let currentSnapshotKey = "late"
+let scrubberStepIndex = 0
+let scrubberPinnedToBest = true
+
+function trajectoryRowMetric(row, metricKey, varY) {
+  if (metricKey === "r2") {
+    if (!Number.isFinite(varY) || varY <= 0) return null
+    if (!Number.isFinite(row.resid_mean_sq)) return null
+    return 1 - row.resid_mean_sq / varY
+  }
+  const value = row[metricKey]
+  return Number.isFinite(value) ? value : null
+}
 
 const figureBase = "../../paper/figures/"
 
@@ -141,7 +162,7 @@ const reportedFigures = [
     group: "Main evidence",
     label: "Weighted residual by family",
     file: "weighted_residual_by_family.png",
-    caption: "Weighted-law residual at best-stationarity checkpoints. Lower is better; all three families land well below 0.01.",
+    caption: "Weighted-law residual at best-stationarity checkpoints. Lower is better, and all three families land well below 0.01.",
     detailHtml: "This is the most direct evidence plot for the late-training law. Lower bars mean the learned feature matrix satisfies <span class=\"math\">H<sup>2</sup> &approx; &kappa;<sub>eff</sub> G&#771;</span> more closely at the best-stationarity checkpoint."
   },
   {
@@ -223,14 +244,14 @@ const reportedFigures = [
   },
   {
     group: "Failure-mode taxonomy",
-    label: "Beta failure — toy example",
+    label: "Beta failure, toy example",
     file: "failure_modes/beta_failure_toy.png",
     caption: "Algebraic toy example of beta over- and under-estimation.",
     detailHtml: "A single high-leverage sample pulls <span class=\"math\">&beta;<sub>fit</sub></span> above <span class=\"math\">mean(r<sup>2</sup>)</span> when it has high residual, and below it when it has low residual. This is what the beta bridge controls."
   },
   {
     group: "Failure-mode taxonomy",
-    label: "Pair failure — toy example",
+    label: "Pair failure, toy example",
     file: "failure_modes/pair_failure_toy.png",
     caption: "Algebraic toy example of high-gain vs low-gain pair geometry.",
     detailHtml: "The same global <span class=\"math\">A<sub>pair</sub></span> value can produce large pushed error in one case and small pushed error in another, depending on whether the bad direction is also a high-gain direction."
@@ -545,7 +566,7 @@ function renderPlot(rows, sweep) {
     svg.appendChild(label)
   })
 
-  // Lines — draw all series first so dots always sit on top
+  // Lines, draw all series first so dots always sit on top
   sweep.series.forEach((series) => {
     const color = resolveColor(series.cssVar)
     svg.appendChild(svgElement("path", {
@@ -648,10 +669,31 @@ function renderTrajectoryLegend(metricKey) {
   }
 }
 
+function activeFamilyData() {
+  if (!trajectoryData) return null
+  const family = document.getElementById("family-select").value
+  return trajectoryData.families ? trajectoryData.families[family] : null
+}
+
+function configureScrubber(familyData) {
+  const scrubber = document.getElementById("trajectory-scrubber")
+  if (!scrubber || !familyData) return
+  const history = familyData.history || []
+  scrubber.min = "0"
+  scrubber.max = String(Math.max(0, history.length - 1))
+  scrubber.step = "1"
+  if (scrubberPinnedToBest && Number.isFinite(familyData.best_step)) {
+    let bestIndex = history.findIndex((row) => row.step === familyData.best_step)
+    if (bestIndex < 0) bestIndex = history.length - 1
+    scrubberStepIndex = bestIndex
+  }
+  scrubberStepIndex = Math.max(0, Math.min(history.length - 1, scrubberStepIndex))
+  scrubber.value = String(scrubberStepIndex)
+}
+
 function renderTrajectoryPlot(family, metricKey) {
   const svg = document.getElementById("trajectory-plot")
   svg.innerHTML = ""
-  const description = document.getElementById("trajectory-description")
   const configSpan = document.getElementById("trajectory-config")
   if (!trajectoryData) {
     const text = svgElement("text", {
@@ -676,9 +718,7 @@ function renderTrajectoryPlot(family, metricKey) {
   }
 
   const overlayInfo = trajectoryMetrics[metricKey]
-  if (description && overlayInfo) {
-    description.dataset.metric = overlayInfo.description
-  }
+  const varY = familyData.var_y
 
   const width = 760
   const height = 320
@@ -697,19 +737,21 @@ function renderTrajectoryPlot(family, metricKey) {
   if (history.length === 0) return
   const steps = history.map((row) => row.step)
   const lossValues = history.map((row) => row.loss_total).filter((value) => Number.isFinite(value) && value > 0)
-  const overlayValues = history.map((row) => row[metricKey]).filter((value) => Number.isFinite(value) && value > 0)
+  const overlayLog = overlayInfo && overlayInfo.logScale
+  const overlayPairs = history
+    .map((row) => ({ step: row.step, value: trajectoryRowMetric(row, metricKey, varY) }))
+    .filter((entry) => entry.value !== null && Number.isFinite(entry.value) && (!overlayLog || entry.value > 0))
+  const overlayValues = overlayPairs.map((entry) => entry.value)
 
   const xScale = plotScale(steps, left, left + plotWidth, false)
   const lossLogScale = plotScale(lossValues, 0, plotHeight, true)
   const lossY = (value) => top + plotHeight - lossLogScale(Math.max(value, 1e-30))
-  const overlayLog = overlayInfo && overlayInfo.logScale
-  const overlayScaleRaw = plotScale(overlayValues, 0, plotHeight, !!overlayLog)
+  const overlayScaleRaw = plotScale(overlayValues.length ? overlayValues : [0, 1], 0, plotHeight, !!overlayLog)
   const overlayY = (value) => {
     const v = overlayLog ? Math.max(value, 1e-30) : value
     return top + plotHeight - overlayScaleRaw(v)
   }
 
-  // Left y-axis ticks (loss, log)
   tickValues(lossValues, 5, true).forEach((tick) => {
     const y = lossY(tick)
     svg.appendChild(svgElement("line", {
@@ -722,7 +764,6 @@ function renderTrajectoryPlot(family, metricKey) {
     svg.appendChild(label)
   })
 
-  // Right y-axis ticks for the overlay metric
   if (overlayValues.length > 0) {
     tickValues(overlayValues, 4, !!overlayLog).forEach((tick) => {
       const y = overlayY(tick)
@@ -734,7 +775,6 @@ function renderTrajectoryPlot(family, metricKey) {
     })
   }
 
-  // X ticks
   tickValues(steps, 6, false).forEach((tick) => {
     const x = xScale(tick)
     svg.appendChild(svgElement("line", {
@@ -748,7 +788,6 @@ function renderTrajectoryPlot(family, metricKey) {
     svg.appendChild(label)
   })
 
-  // Loss line
   const lossPath = history
     .filter((row) => Number.isFinite(row.loss_total) && row.loss_total > 0)
     .map((row, index) => (index === 0 ? "M" : "L") + " " + xScale(row.step).toFixed(2) + " " + lossY(row.loss_total).toFixed(2))
@@ -757,18 +796,15 @@ function renderTrajectoryPlot(family, metricKey) {
     d: lossPath, fill: "none", stroke: resolveColor("--muted"), "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round"
   }))
 
-  // Overlay line
-  if (overlayInfo && overlayValues.length > 0) {
-    const overlayPath = history
-      .filter((row) => Number.isFinite(row[metricKey]) && row[metricKey] > 0)
-      .map((row, index) => (index === 0 ? "M" : "L") + " " + xScale(row.step).toFixed(2) + " " + overlayY(row[metricKey]).toFixed(2))
+  if (overlayInfo && overlayPairs.length > 0) {
+    const overlayPath = overlayPairs
+      .map((entry, index) => (index === 0 ? "M" : "L") + " " + xScale(entry.step).toFixed(2) + " " + overlayY(entry.value).toFixed(2))
       .join(" ")
     svg.appendChild(svgElement("path", {
       d: overlayPath, fill: "none", stroke: resolveColor(overlayInfo.cssVar), "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round"
     }))
   }
 
-  // Best-stationarity vertical line
   if (Number.isFinite(familyData.best_step)) {
     const x = xScale(familyData.best_step)
     svg.appendChild(svgElement("line", {
@@ -782,7 +818,28 @@ function renderTrajectoryPlot(family, metricKey) {
     svg.appendChild(label)
   }
 
-  // Axis labels
+  const scrubRow = history[Math.max(0, Math.min(history.length - 1, scrubberStepIndex))]
+  if (scrubRow && Number.isFinite(scrubRow.step)) {
+    const xs = xScale(scrubRow.step)
+    svg.appendChild(svgElement("line", {
+      x1: xs, x2: xs, y1: top, y2: top + plotHeight,
+      stroke: resolveColor("--rust"), "stroke-width": 2
+    }))
+    if (Number.isFinite(scrubRow.loss_total) && scrubRow.loss_total > 0) {
+      svg.appendChild(svgElement("circle", {
+        cx: xs, cy: lossY(scrubRow.loss_total), r: 5,
+        fill: resolveColor("--muted"), stroke: resolveColor("--panel"), "stroke-width": 2
+      }))
+    }
+    const overlayValueAtScrub = trajectoryRowMetric(scrubRow, metricKey, varY)
+    if (overlayInfo && overlayValueAtScrub !== null && Number.isFinite(overlayValueAtScrub) && (!overlayLog || overlayValueAtScrub > 0)) {
+      svg.appendChild(svgElement("circle", {
+        cx: xs, cy: overlayY(overlayValueAtScrub), r: 5,
+        fill: resolveColor(overlayInfo.cssVar), stroke: resolveColor("--panel"), "stroke-width": 2
+      }))
+    }
+  }
+
   const xLabel = svgElement("text", {
     x: left + plotWidth / 2, y: height - 14, "text-anchor": "middle", fill: "currentColor", "font-size": 13
   })
@@ -803,6 +860,280 @@ function renderTrajectoryPlot(family, metricKey) {
     })
     yLabelRight.textContent = overlayInfo.label
     svg.appendChild(yLabelRight)
+  }
+}
+
+function renderTrajectoryReadout(familyData, metricKey) {
+  const readout = document.getElementById("trajectory-readout")
+  const output = document.getElementById("trajectory-scrubber-output")
+  if (!readout) return
+  readout.innerHTML = ""
+  if (!familyData) {
+    if (output) output.textContent = ""
+    return
+  }
+  const history = familyData.history || []
+  if (history.length === 0) {
+    if (output) output.textContent = ""
+    return
+  }
+  const index = Math.max(0, Math.min(history.length - 1, scrubberStepIndex))
+  const row = history[index]
+  if (output) {
+    const phase = row.phase ? " (" + row.phase + ")" : ""
+    output.textContent = "step " + row.step + phase
+  }
+
+  const cards = [
+    ["loss_total", row.loss_total, formatSci],
+    ["resid_mean_sq", row.resid_mean_sq, formatSci],
+    ["beta_fit", row.beta_fit, formatSci],
+    ["gamma_tilde / H^2", row.gamma_tilde_eff_rel_h2, formatCompact],
+    ["theorem bound ratio", row.theorem_bound_ratio, formatCompact],
+    ["pushed pair", row.pair_push_scaled_op, formatSci]
+  ]
+  const r2 = trajectoryRowMetric(row, "r2", familyData.var_y)
+  if (r2 !== null) cards.unshift(["R^2", r2, formatCompact])
+
+  cards.forEach(([label, value, formatter]) => {
+    const card = document.createElement("div")
+    card.className = "readout-card"
+    const labelEl = document.createElement("p")
+    labelEl.className = "readout-label"
+    labelEl.textContent = label
+    const valueEl = document.createElement("p")
+    valueEl.className = "readout-value"
+    valueEl.textContent = Number.isFinite(value) ? formatter(value) : "-"
+    card.appendChild(labelEl)
+    card.appendChild(valueEl)
+    readout.appendChild(card)
+  })
+}
+
+function getSnapshot(familyKey, snapshotKey) {
+  if (!matrixSnapshots) return null
+  const fam = matrixSnapshots.families && matrixSnapshots.families[familyKey]
+  if (!fam) return null
+  return (fam.snapshots || []).find((s) => s.label === snapshotKey) || null
+}
+
+function colorForCell(value, vmax) {
+  if (!Number.isFinite(value)) return "rgba(0,0,0,0)"
+  if (vmax <= 0) return "rgb(20, 20, 20)"
+  const t = Math.min(1, Math.max(0, value / vmax))
+  const stops = [
+    [13, 21, 32],
+    [41, 64, 87],
+    [111, 127, 18],
+    [215, 242, 91],
+    [255, 240, 200]
+  ]
+  const idx = t * (stops.length - 1)
+  const i = Math.floor(idx)
+  const frac = idx - i
+  const a = stops[i]
+  const b = stops[Math.min(i + 1, stops.length - 1)]
+  const r = Math.round(a[0] + (b[0] - a[0]) * frac)
+  const g = Math.round(a[1] + (b[1] - a[1]) * frac)
+  const c = Math.round(a[2] + (b[2] - a[2]) * frac)
+  return "rgb(" + r + "," + g + "," + c + ")"
+}
+
+function renderAlignmentHeatmap() {
+  const svg = document.getElementById("alignment-heatmap")
+  if (!svg) return
+  svg.innerHTML = ""
+  const meta = document.getElementById("alignment-meta")
+  const familyKey = document.getElementById("family-select").value
+  const snapshot = getSnapshot(familyKey, currentSnapshotKey)
+  if (!snapshot) {
+    const text = svgElement("text", { x: 180, y: 180, "text-anchor": "middle", fill: "currentColor", "font-size": 14 })
+    text.textContent = matrixSnapshots ? "No snapshot for this family." : "Loading matrix snapshots..."
+    svg.appendChild(text)
+    if (meta) meta.textContent = ""
+    return
+  }
+  const matrix = snapshot.alignment_abs
+  const rows = matrix.length
+  const cols = matrix[0].length
+  const padTop = 38
+  const padBottom = 26
+  const padLeft = 40
+  const padRight = 22
+  const width = 360
+  const height = 360
+  const cellW = (width - padLeft - padRight) / cols
+  const cellH = (height - padTop - padBottom) / rows
+
+  let vmax = 0
+  for (let i = 0; i < rows; i += 1) {
+    for (let j = 0; j < cols; j += 1) {
+      if (Number.isFinite(matrix[i][j])) vmax = Math.max(vmax, matrix[i][j])
+    }
+  }
+
+  const heading = svgElement("text", {
+    x: width / 2, y: 22, "text-anchor": "middle",
+    fill: "currentColor", "font-size": 12, "font-weight": 700
+  })
+  heading.textContent = "|B B*^T| at " + snapshot.label + ", step " + snapshot.step
+  svg.appendChild(heading)
+
+  for (let i = 0; i < rows; i += 1) {
+    for (let j = 0; j < cols; j += 1) {
+      const x = padLeft + j * cellW
+      const y = padTop + i * cellH
+      svg.appendChild(svgElement("rect", {
+        x, y, width: cellW + 0.5, height: cellH + 0.5,
+        fill: colorForCell(matrix[i][j], vmax)
+      }))
+    }
+  }
+
+  for (let j = 0; j < cols; j += 1) {
+    const label = svgElement("text", {
+      x: padLeft + (j + 0.5) * cellW, y: padTop - 6,
+      "text-anchor": "middle", fill: "currentColor", "font-size": 10
+    })
+    label.textContent = "T" + j
+    svg.appendChild(label)
+  }
+  for (let i = 0; i < rows; i += 4) {
+    const label = svgElement("text", {
+      x: padLeft - 6, y: padTop + (i + 0.7) * cellH,
+      "text-anchor": "end", fill: "currentColor", "font-size": 10
+    })
+    label.textContent = "S" + i
+    svg.appendChild(label)
+  }
+  const xAxisLabel = svgElement("text", {
+    x: padLeft + (cols * cellW) / 2, y: height - 6,
+    "text-anchor": "middle", fill: "currentColor", "font-size": 11
+  })
+  xAxisLabel.textContent = "teacher units"
+  svg.appendChild(xAxisLabel)
+  const yAxisLabel = svgElement("text", {
+    x: 14, y: padTop + (rows * cellH) / 2,
+    "text-anchor": "middle", fill: "currentColor", "font-size": 11,
+    transform: "rotate(-90 14 " + (padTop + (rows * cellH) / 2) + ")"
+  })
+  yAxisLabel.textContent = "student units"
+  svg.appendChild(yAxisLabel)
+
+  if (meta) {
+    const r2 = (snapshot.resid_mean_sq !== null && Number.isFinite(snapshot.resid_mean_sq) && matrixSnapshots.families[familyKey].var_y > 0)
+      ? (1 - snapshot.resid_mean_sq / matrixSnapshots.families[familyKey].var_y)
+      : null
+    const r2Text = r2 === null ? "n/a" : formatCompact(r2)
+    meta.textContent = "max |B B*^T| = " + formatCompact(vmax) + " | R^2 = " + r2Text + " | loss = " + formatSci(snapshot.loss_total)
+  }
+}
+
+function renderSpectrumPlot() {
+  const svg = document.getElementById("spectrum-plot")
+  const legend = document.getElementById("spectrum-legend")
+  if (!svg) return
+  svg.innerHTML = ""
+  if (legend) legend.innerHTML = ""
+
+  const familyKey = document.getElementById("family-select").value
+  const snapshot = getSnapshot(familyKey, currentSnapshotKey)
+  if (!snapshot) {
+    const text = svgElement("text", { x: 190, y: 140, "text-anchor": "middle", fill: "currentColor", "font-size": 14 })
+    text.textContent = matrixSnapshots ? "No snapshot for this family." : "Loading matrix snapshots..."
+    svg.appendChild(text)
+    return
+  }
+  const h2 = (snapshot.h2_eigs || []).map((value) => Math.max(value, 0))
+  const kg = (snapshot.kappa_g_tilde_eigs || []).map((value) => Math.max(value, 0))
+
+  const padTop = 28
+  const padBottom = 36
+  const padLeft = 60
+  const padRight = 16
+  const width = 380
+  const height = 280
+  const plotWidth = width - padLeft - padRight
+  const plotHeight = height - padTop - padBottom
+  const k = Math.max(h2.length, kg.length)
+
+  svg.appendChild(svgElement("rect", {
+    x: padLeft, y: padTop, width: plotWidth, height: plotHeight, rx: 12, class: "plot-frame"
+  }))
+
+  const all = h2.concat(kg).filter((value) => value > 0)
+  const fallback = [1e-6, 1]
+  const yScale = plotScale(all.length ? all : fallback, 0, plotHeight, true)
+  const yPos = (value) => padTop + plotHeight - yScale(Math.max(value, 1e-30))
+
+  tickValues(all.length ? all : fallback, 5, true).forEach((tick) => {
+    const y = yPos(tick)
+    svg.appendChild(svgElement("line", {
+      x1: padLeft, x2: padLeft + plotWidth, y1: y, y2: y, class: "grid-line", "stroke-width": 1
+    }))
+    const label = svgElement("text", {
+      x: padLeft - 8, y: y + 4, "text-anchor": "end", fill: "currentColor", "font-size": 10, class: "axis-label"
+    })
+    label.textContent = formatCompact(tick)
+    svg.appendChild(label)
+  })
+
+  const groupWidth = plotWidth / Math.max(k, 1)
+  const barWidth = Math.max(2, groupWidth * 0.4)
+
+  for (let i = 0; i < k; i += 1) {
+    const xCenter = padLeft + (i + 0.5) * groupWidth
+    if (h2[i] !== undefined && h2[i] > 0) {
+      const y = yPos(h2[i])
+      svg.appendChild(svgElement("rect", {
+        x: xCenter - barWidth - 1, y, width: barWidth, height: padTop + plotHeight - y,
+        fill: resolveColor("--series-a"), rx: 2
+      }))
+    }
+    if (kg[i] !== undefined && kg[i] > 0) {
+      const y = yPos(kg[i])
+      svg.appendChild(svgElement("rect", {
+        x: xCenter + 1, y, width: barWidth, height: padTop + plotHeight - y,
+        fill: resolveColor("--series-c"), rx: 2
+      }))
+    }
+    if (i % 2 === 0) {
+      const tick = svgElement("text", {
+        x: xCenter, y: padTop + plotHeight + 14, "text-anchor": "middle", fill: "currentColor", "font-size": 10
+      })
+      tick.textContent = String(i + 1)
+      svg.appendChild(tick)
+    }
+  }
+
+  const xLabel = svgElement("text", {
+    x: padLeft + plotWidth / 2, y: height - 6, "text-anchor": "middle", fill: "currentColor", "font-size": 11
+  })
+  xLabel.textContent = "eigenvalue rank (descending)"
+  svg.appendChild(xLabel)
+
+  const yLabel = svgElement("text", {
+    x: 14, y: padTop + plotHeight / 2, "text-anchor": "middle", fill: "currentColor", "font-size": 11,
+    transform: "rotate(-90 14 " + (padTop + plotHeight / 2) + ")"
+  })
+  yLabel.textContent = "eigenvalue (log)"
+  svg.appendChild(yLabel)
+
+  if (legend) {
+    const a = document.createElement("span")
+    const aSwatch = document.createElement("span")
+    aSwatch.className = "legend-swatch"
+    aSwatch.style.background = "var(--series-a)"
+    a.appendChild(aSwatch)
+    a.append("eig(H squared)")
+    legend.appendChild(a)
+    const c = document.createElement("span")
+    const cSwatch = document.createElement("span")
+    cSwatch.className = "legend-swatch"
+    cSwatch.style.background = "var(--series-c)"
+    c.appendChild(cSwatch)
+    c.append("eig(kappa_eff times G_tilde)")
+    legend.appendChild(c)
   }
 }
 
@@ -913,7 +1244,7 @@ function renderRegimeLocator(state) {
   svg.appendChild(yLabel)
 
   if (status) {
-    status.textContent = regime.name + " — " + regime.text
+    status.textContent = regime.name + ". " + regime.text
     status.style.borderLeft = "4px solid " + regime.color
     status.style.paddingLeft = "12px"
   }
@@ -1037,8 +1368,13 @@ function renderLive() {
   renderRegimeLocator(state)
   const family = document.getElementById("family-select").value
   const metricKey = document.getElementById("trajectory-metric-select").value
+  const familyData = activeFamilyData()
+  configureScrubber(familyData)
   renderTrajectoryPlot(family, metricKey)
   renderTrajectoryLegend(metricKey)
+  renderTrajectoryReadout(familyData, metricKey)
+  renderAlignmentHeatmap()
+  renderSpectrumPlot()
 }
 
 function renderReportedFigure() {
@@ -1069,14 +1405,15 @@ function toggleTheme() {
   renderLive()
 }
 
-function setView(view) {
-  document.getElementById("live-view").hidden = view !== "live"
-  document.getElementById("reported-view").hidden = view !== "reported"
-  document.querySelector(".control-sidebar").dataset.activeView = view
-
-  document.querySelectorAll(".view-button").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === view)
-  })
+function openFiguresDialog() {
+  const dialog = document.getElementById("figures-dialog")
+  if (!dialog) return
+  if (typeof dialog.showModal === "function") {
+    if (!dialog.open) dialog.showModal()
+  } else {
+    dialog.setAttribute("open", "")
+  }
+  renderReportedFigure()
 }
 
 function renderSelectors() {
@@ -1123,7 +1460,12 @@ function reset() {
   document.getElementById("pair-gain-slider").value = "-2"
   document.getElementById("gain-corr-slider").value = "0.05"
   document.getElementById("figure-select").value = "0"
-  document.getElementById("trajectory-metric-select").value = "gamma_tilde_eff_rel_h2"
+  document.getElementById("trajectory-metric-select").value = "r2"
+  scrubberPinnedToBest = true
+  currentSnapshotKey = "late"
+  document.querySelectorAll(".snapshot-button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.snapshot === "late")
+  })
   renderLive()
   renderReportedFigure()
 }
@@ -1159,28 +1501,71 @@ function bindEvents() {
   document.getElementById("theme-button").addEventListener("click", toggleTheme)
   document.getElementById("trajectory-metric-select").addEventListener("change", renderLive)
 
-  document.querySelectorAll(".view-button").forEach((button) => {
-    button.addEventListener("click", () => setView(button.dataset.view))
+  const scrubber = document.getElementById("trajectory-scrubber")
+  if (scrubber) {
+    scrubber.addEventListener("input", () => {
+      scrubberStepIndex = Number(scrubber.value)
+      scrubberPinnedToBest = false
+      const familyData = activeFamilyData()
+      const metricKey = document.getElementById("trajectory-metric-select").value
+      renderTrajectoryPlot(document.getElementById("family-select").value, metricKey)
+      renderTrajectoryReadout(familyData, metricKey)
+    })
+  }
+
+  document.querySelectorAll(".snapshot-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      const snapshotKey = button.dataset.snapshot
+      if (!snapshotKey) return
+      currentSnapshotKey = snapshotKey
+      document.querySelectorAll(".snapshot-button").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.snapshot === snapshotKey)
+      })
+      renderAlignmentHeatmap()
+      renderSpectrumPlot()
+    })
   })
+
+  const openFigures = document.getElementById("open-figures")
+  if (openFigures) {
+    openFigures.addEventListener("click", openFiguresDialog)
+  }
+  const dialog = document.getElementById("figures-dialog")
+  if (dialog) {
+    const closeBtn = dialog.querySelector(".dialog-close")
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => {
+        if (typeof dialog.close === "function") dialog.close()
+        else dialog.removeAttribute("open")
+      })
+    }
+  }
 }
 
-function loadTrajectories() {
-  return fetch("data/trajectories.json", { cache: "no-store" })
+function loadDatasets() {
+  const trajectoryPromise = fetch("data/trajectories.json", { cache: "no-store" })
     .then((response) => {
-      if (!response.ok) {
-        throw new Error("Failed to load trajectory data: " + response.status)
-      }
+      if (!response.ok) throw new Error("trajectories.json HTTP " + response.status)
       return response.json()
     })
-    .then((payload) => {
-      trajectoryData = payload
-      renderLive()
-    })
+    .then((payload) => { trajectoryData = payload })
     .catch((err) => {
       console.warn("trajectories.json unavailable:", err)
       trajectoryData = { families: {} }
-      renderLive()
     })
+
+  const matrixPromise = fetch("data/matrix_snapshots.json", { cache: "no-store" })
+    .then((response) => {
+      if (!response.ok) throw new Error("matrix_snapshots.json HTTP " + response.status)
+      return response.json()
+    })
+    .then((payload) => { matrixSnapshots = payload })
+    .catch((err) => {
+      console.warn("matrix_snapshots.json unavailable:", err)
+      matrixSnapshots = { families: {} }
+    })
+
+  return Promise.all([trajectoryPromise, matrixPromise]).then(() => renderLive())
 }
 
 function main() {
@@ -1189,8 +1574,7 @@ function main() {
   bindEvents()
   setTheme(localStorage.getItem("weightedAgopTheme") || "dark")
   reset()
-  setView("live")
-  loadTrajectories()
+  loadDatasets()
 }
 
 main()
