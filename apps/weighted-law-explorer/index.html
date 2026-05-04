@@ -6,225 +6,187 @@
   <title>Weighted AGOP Law Explorer</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <main>
-    <header class="hero">
-      <div>
+<body data-theme="dark">
+  <div class="app-shell">
+    <aside class="control-sidebar">
+      <div class="sidebar-header">
         <p class="eyebrow">Feature learning two regimes</p>
-        <h1>Weighted AGOP Law Explorer</h1>
-        <p class="lede">
-          An interactive guide to the two-regime story: weighted AGOP is stable
-          late in training, while raw AGOP is an intermediate-regime object
-          because the beta bridge collapses near interpolation.
-        </p>
-      </div>
-      <div class="hero-card">
-        <p class="eyebrow">Main law</p>
-        <p class="formula">H^2 approx kappa_eff G_tilde</p>
+        <h1>Weighted AGOP Explorer</h1>
         <p>
-          The app focuses on the diagnostics that make this law visible across
-          isotropic, anisotropic, and low-rank signal data.
+          Adjust the controls and read the generated sweep, plot, and table.
+          Static experiment figures are kept in a separate reported view.
         </p>
       </div>
-    </header>
 
-    <section class="panel controls">
-      <h2>Explore the evidence</h2>
-      <div class="control-grid">
+      <div class="view-toggle" role="group" aria-label="View mode">
+        <button class="view-button active" data-view="live" type="button">Live lab</button>
+        <button class="view-button" data-view="reported" type="button">Reported figures</button>
+      </div>
+      <button id="theme-button" class="theme-button" type="button">Use light theme</button>
+
+      <section class="control-group">
+        <h2>Run Context</h2>
         <label for="family-select">Family</label>
         <select id="family-select"></select>
 
-        <label for="metric-select">Metric</label>
-        <select id="metric-select"></select>
+        <label for="seed-input">Seed</label>
+        <input id="seed-input" type="number" min="0" max="99" step="1" value="0">
 
-        <button id="reset-button" type="button">Reset</button>
-      </div>
-    </section>
+        <label for="sweep-select">Sweep over</label>
+        <select id="sweep-select"></select>
+      </section>
 
-    <section class="panel split">
-      <div>
-        <h2>Selected metric</h2>
-        <div id="metric-card"></div>
-      </div>
-      <div>
-        <h2>Core claims</h2>
-        <div id="claim-cards"></div>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Evidence bars</h2>
-      <div id="metric-bars"></div>
-    </section>
-
-    <section class="panel simulator">
-      <div>
-        <p class="eyebrow">Interactive model</p>
-        <h2>Two-regime simulator</h2>
-        <p>
-          Move the sliders to see the qualitative mechanism. As residual energy
-          shrinks, the weighted law can remain stable while the raw conversion
-          becomes sensitive because it divides by a small beta bridge.
-        </p>
-      </div>
-      <div class="slider-grid">
-        <label for="residual-slider">Residual energy</label>
-        <input id="residual-slider" type="range" min="-5" max="0" step="0.05" value="-3">
-        <output id="residual-output"></output>
-
-        <label for="stationarity-slider">Stationarity defect</label>
-        <input id="stationarity-slider" type="range" min="-6" max="-1" step="0.05" value="-4">
-        <output id="stationarity-output"></output>
-
-        <label for="pair-slider">Pushed pair error</label>
-        <input id="pair-slider" type="range" min="-7" max="-1" step="0.05" value="-5">
-        <output id="pair-output"></output>
-      </div>
-      <div id="simulator-cards"></div>
-    </section>
-
-    <section class="panel beta-panel">
-      <div>
-        <p class="eyebrow">Beta-fit diagnostic</p>
-        <h2>Why beta tracks mean residual energy</h2>
-        <p>
-          The identity beta_fit equals a hidden-leverage weighted average of
-          squared residuals. This panel separates three deterministic effects:
-          leverage flatness, residual flatness, and their empirical correlation.
-        </p>
-      </div>
-      <div class="slider-grid">
-        <label for="leverage-cv-slider">Leverage CV</label>
-        <input id="leverage-cv-slider" type="range" min="-3" max="1" step="0.05" value="-1">
-        <output id="leverage-cv-output"></output>
-
-        <label for="resid-cv-slider">Residual-squared CV</label>
-        <input id="resid-cv-slider" type="range" min="-3" max="1" step="0.05" value="0">
-        <output id="resid-cv-output"></output>
-
-        <label for="corr-slider">Correlation</label>
-        <input id="corr-slider" type="range" min="-1" max="1" step="0.01" value="0.05">
-        <output id="corr-output"></output>
-      </div>
-      <div id="beta-diagnostic-cards"></div>
-    </section>
-
-    <section class="panel pair-panel">
-      <div>
-        <p class="eyebrow">Pair compression diagnostic</p>
-        <h2>Why worst directions can be harmless</h2>
-        <p>
-          The support-normalized pair defect can be large because it scans every
-          direction in the residual-weighted hidden span. The weighted law only
-          sees directions after stationarity-induced gain has acted on them.
-        </p>
-      </div>
-      <div class="slider-grid">
-        <label for="pair-defect-slider">Worst pair defect</label>
-        <input id="pair-defect-slider" type="range" min="-2" max="4" step="0.05" value="2">
-        <output id="pair-defect-output"></output>
-
-        <label for="pair-gain-slider">Gain on bad direction</label>
-        <input id="pair-gain-slider" type="range" min="-5" max="1" step="0.05" value="-2">
-        <output id="pair-gain-output"></output>
-
-        <label for="gain-corr-slider">Defect-gain correlation</label>
-        <input id="gain-corr-slider" type="range" min="-1" max="1" step="0.01" value="0.05">
-        <output id="gain-corr-output"></output>
-      </div>
-      <div id="pair-diagnostic-cards"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Family comparison</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Family</th>
-              <th>Weighted residual</th>
-              <th>Bound ratio</th>
-              <th>Beta / mean r^2</th>
-              <th>Pushed pair error</th>
-            </tr>
-          </thead>
-          <tbody id="summary-table"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Figures</h2>
-      <label for="figure-select">Figure</label>
-      <select id="figure-select"></select>
-      <figure>
-        <img id="figure-image" alt="Selected weighted AGOP figure">
-        <figcaption id="figure-caption"></figcaption>
-      </figure>
-    </section>
-
-    <section class="panel">
-      <h2>Presentation guidance</h2>
-      <div class="guidance-grid">
-        <article>
-          <h3>Make central</h3>
-          <ul>
-            <li>Weighted law residual</li>
-            <li>Theorem bound ratio</li>
-            <li>Beta over residual energy</li>
-            <li>Pushed pair error</li>
-            <li>Pair gain diagnostics</li>
-          </ul>
-        </article>
-        <article>
-          <h3>Keep secondary</h3>
-          <ul>
-            <li>A_pair as worst-direction diagnostic</li>
-            <li>Symmetric relative error</li>
-            <li>H^2-only relative error</li>
-          </ul>
-        </article>
-      </div>
-    </section>
-
-    <template id="metric-card-template">
-      <article class="metric-card">
-        <p class="eyebrow metric-family"></p>
-        <h3 class="metric-title"></h3>
-        <p class="metric-value"></p>
-        <p class="metric-description"></p>
-        <p class="metric-note"></p>
-        <p class="metric-range"></p>
-      </article>
-    </template>
-
-    <template id="bar-template">
-      <article class="bar-card">
-        <div class="bar-header">
-          <strong class="bar-label"></strong>
-          <span class="bar-value"></span>
+      <section class="control-group">
+        <h2>Weighted Law</h2>
+        <div class="slider-row">
+          <label for="residual-slider" title="Sets beta fit through the empirical beta bridge">Residual energy</label>
+          <input id="residual-slider" type="range" min="-5" max="0" step="0.05" value="-3">
+          <output id="residual-output"></output>
         </div>
-        <div class="bar-track">
-          <div class="bar-fill"></div>
+        <div class="slider-row">
+          <label for="stationarity-slider" title="Proxy for how far the checkpoint is from B-stationarity">Stationarity defect</label>
+          <input id="stationarity-slider" type="range" min="-6" max="-1" step="0.05" value="-4">
+          <output id="stationarity-output"></output>
         </div>
-      </article>
-    </template>
+      </section>
 
-    <template id="simulator-card-template">
-      <article class="sim-card">
-        <p class="eyebrow sim-label"></p>
-        <p class="sim-value"></p>
-        <p class="sim-text"></p>
-      </article>
-    </template>
+      <section class="control-group">
+        <h2>Beta Bridge</h2>
+        <div class="slider-row">
+          <label for="leverage-cv-slider" title="Coefficient of variation of hidden-gradient leverage">Leverage CV</label>
+          <input id="leverage-cv-slider" type="range" min="-3" max="1" step="0.05" value="-1">
+          <output id="leverage-cv-output"></output>
+        </div>
+        <div class="slider-row">
+          <label for="resid-cv-slider" title="Coefficient of variation of squared residuals">Residual CV</label>
+          <input id="resid-cv-slider" type="range" min="-3" max="1" step="0.05" value="0">
+          <output id="resid-cv-output"></output>
+        </div>
+        <div class="slider-row">
+          <label for="corr-slider" title="Empirical correlation between leverage and squared residuals">Correlation</label>
+          <input id="corr-slider" type="range" min="-1" max="1" step="0.01" value="0.05">
+          <output id="corr-output"></output>
+        </div>
+      </section>
 
-    <template id="claim-template">
-      <details class="claim-card" open>
-        <summary></summary>
-        <p></p>
-      </details>
-    </template>
-  </main>
+      <section class="control-group">
+        <h2>Pair Compression</h2>
+        <div class="slider-row">
+          <label for="pair-defect-slider" title="Worst support-normalized pair defect">Pair defect</label>
+          <input id="pair-defect-slider" type="range" min="-2" max="4" step="0.05" value="2">
+          <output id="pair-defect-output"></output>
+        </div>
+        <div class="slider-row">
+          <label for="pair-gain-slider" title="Stationarity-induced gain on the bad direction">Bad-direction gain</label>
+          <input id="pair-gain-slider" type="range" min="-5" max="1" step="0.05" value="-2">
+          <output id="pair-gain-output"></output>
+        </div>
+        <div class="slider-row">
+          <label for="gain-corr-slider" title="Coupling between pair defects and stationarity-induced gain">Defect-gain corr</label>
+          <input id="gain-corr-slider" type="range" min="-1" max="1" step="0.01" value="0.05">
+          <output id="gain-corr-output"></output>
+        </div>
+      </section>
+
+      <p class="controls-note" aria-live="polite">These controls apply to Live lab only.</p>
+      <button id="reset-button" class="reset-button" type="button">Reset controls</button>
+    </aside>
+
+    <main class="dashboard-main">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Main law</p>
+          <p class="formula">H<sup>2</sup> &approx; &kappa;<sub>eff</sub> G&#771;</p>
+          <p class="lede">
+            The live view is a qualitative control surface for the theorem
+            story. The reported view keeps the static paper figures separate.
+          </p>
+        </div>
+        <div class="hero-card">
+          <p class="eyebrow">Current family</p>
+          <h2 id="family-title"></h2>
+          <p id="family-summary"></p>
+        </div>
+      </header>
+
+      <section id="live-view">
+        <section class="panel plot-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Generated sweep</p>
+              <h2 id="sweep-title"></h2>
+              <p id="sweep-description"></p>
+            </div>
+            <div class="legend" id="plot-legend"></div>
+          </div>
+          <svg id="live-plot" viewBox="0 0 760 360" role="img" aria-labelledby="sweep-title"></svg>
+        </section>
+
+        <section class="panel">
+          <div class="insight-grid" id="insight-cards"></div>
+        </section>
+
+        <section class="panel split">
+          <div>
+            <h2>Sweep Data</h2>
+            <p id="sweep-table-note" class="table-note"></p>
+            <div class="table-wrap">
+              <table>
+                <thead id="sweep-table-head"></thead>
+                <tbody id="sweep-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h2>Family Benchmarks</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Family</th>
+                    <th>Weighted residual</th>
+                    <th>Beta / mean r^2</th>
+                    <th>Pushed pair</th>
+                  </tr>
+                </thead>
+                <tbody id="summary-table"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="reported-view" hidden>
+        <section class="panel reported-panel">
+          <div>
+            <p class="eyebrow">Static evidence</p>
+            <h2>Reported Figures</h2>
+            <p>
+              These figures are tracked paper and demo artifacts. They are kept
+              separate from the live lab so the interactive view stays smooth,
+              while the static view remains a faithful record of experiment
+              outputs.
+            </p>
+            <label for="figure-select">Figure</label>
+            <select id="figure-select"></select>
+            <div id="figure-detail" class="figure-detail"></div>
+          </div>
+          <figure>
+            <img id="figure-image" alt="Selected weighted AGOP figure">
+            <figcaption id="figure-caption"></figcaption>
+          </figure>
+        </section>
+      </section>
+
+      <template id="insight-template">
+        <article class="insight-card">
+          <p class="eyebrow insight-label"></p>
+          <p class="insight-value"></p>
+          <p class="insight-text"></p>
+        </article>
+      </template>
+    </main>
+  </div>
 
   <script src="app.js"></script>
 </body>

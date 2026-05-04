@@ -40,147 +40,170 @@ const families = {
   }
 }
 
-const metrics = {
-  weightedResidual: {
-    label: "Weighted residual",
-    description: "Mean operator norm residual at best-stationarity checkpoints",
-    format: "sci"
+const sweeps = {
+  regime: {
+    label: "Residual energy",
+    title: "Test of raw sensitivity versus residual energy",
+    description: "The x-axis is centered on the Residual energy slider. Stationarity defect, pair defect, bad-direction gain, and beta correlation controls move the curves.",
+    xLabel: "residual energy",
+    logScale: true,
+    tableNote: "Each row is a hypothetical checkpoint at a different residual energy. Stationarity defect and pair compression are held fixed, so raw sensitivity varies purely because beta fit scales with residual energy.",
+    series: [
+      { key: "weightedError", label: "weighted proxy", cssVar: "--series-a" },
+      { key: "rawSensitivity", label: "raw sensitivity", cssVar: "--series-b" }
+    ],
+    columns: [
+      ["residualEnergy", "residual energy"],
+      ["betaFit", "beta fit"],
+      ["rawSensitivity", "raw sensitivity"],
+      ["regime", "regime"],
+      ["isCurrent", "selected"]
+    ]
   },
-  boundRatio: {
-    label: "Theorem bound ratio",
-    description: "Observed weighted residual divided by the deterministic bound",
-    format: "fixed"
+  beta: {
+    label: "Beta correlation",
+    title: "Beta identity sweep",
+    description: "The x-axis is centered on the Correlation slider. Leverage CV and Residual CV change the height of the beta-error curves.",
+    xLabel: "correlation",
+    logScale: false,
+    tableNote: "Each row is a possible leverage-residual correlation. Leverage CV and residual CV are fixed by the sidebar, so the table focuses on the beta error implied by changing correlation.",
+    series: [
+      { key: "signedBetaError", label: "signed beta error", cssVar: "--series-a" },
+      { key: "absoluteBetaError", label: "absolute beta error", cssVar: "--series-c" }
+    ],
+    columns: [
+      ["corr", "correlation"],
+      ["signedBetaError", "signed error"],
+      ["absoluteBetaError", "absolute error"],
+      ["isCurrent", "selected"]
+    ]
   },
-  betaOverMean: {
-    label: "Beta over residual energy",
-    description: "Mean beta_fit divided by mean residual squared across all checkpoints",
-    format: "fixed"
-  },
-  pushedPair: {
-    label: "Pushed pair error",
-    description: "Pair error after pushing through the learned feature map",
-    format: "sci"
-  },
-  symmetricRelative: {
-    label: "Symmetric relative error",
-    description: "Secondary relative weighted-law diagnostic",
-    format: "fixed"
-  },
-  aPair: {
-    label: "A_pair",
-    description: "Conservative support-normalized worst-direction diagnostic",
-    format: "fixed"
+  pair: {
+    label: "Pair gain",
+    title: "Pair defect versus stationarity gain",
+    description: "The x-axis is centered on the Bad-direction gain slider. Pair defect and defect-gain correlation change the risk scale.",
+    xLabel: "bad-direction gain",
+    logScale: true,
+    tableNote: "Each row changes the stationarity gain on a bad pair direction. The pair defect is held fixed so the table shows how gain turns a worst-direction defect into actual risk.",
+    series: [
+      { key: "supportDefect", label: "support defect", cssVar: "--series-c" },
+      { key: "gainWeightedContribution", label: "gain-weighted contribution", cssVar: "--series-b" }
+    ],
+    columns: [
+      ["gain", "gain"],
+      ["gainWeightedContribution", "defect times gain squared"],
+      ["diagnosticRisk", "diagnostic risk"],
+      ["warning", "warning"],
+      ["isCurrent", "selected"]
+    ]
   }
 }
 
-const claims = [
-  {
-    title: "Late training is weighted",
-    text: "The stable convergence-side relation is H^2 approx kappa_eff G_tilde."
-  },
-  {
-    title: "Raw AGOP is intermediate",
-    text: "The raw bridge becomes ill-conditioned as beta_fit collapses near interpolation."
-  },
-  {
-    title: "Beta tracks residual energy",
-    text: "Across checkpoints, beta_fit / mean(r^2) stays close to one in all three families."
-  },
-  {
-    title: "Pushed pair error matters",
-    text: "A_pair can be large, but the pair error after pushing through B is small."
-  },
-  {
-    title: "Bad directions need gain",
-    text: "The new pair diagnostics check whether large pair defects occur in directions with small stationarity-induced gain."
-  }
-]
-
 const figureBase = "../../paper/figures/"
 
-const figures = [
-  // Main evidence
+const reportedFigures = [
   {
+    group: "Main evidence",
     label: "Weighted residual by family",
     file: "weighted_residual_by_family.png",
-    caption: "Weighted-law residual at best-stationarity checkpoints. Lower is better; all three families land well below 0.01."
+    caption: "Weighted-law residual at best-stationarity checkpoints. Lower is better; all three families land well below 0.01.",
+    detailHtml: "This is the most direct evidence plot for the late-training law. Lower bars mean the learned feature matrix satisfies <span class=\"math\">H<sup>2</sup> &approx; &kappa;<sub>eff</sub> G&#771;</span> more closely at the best-stationarity checkpoint."
   },
   {
+    group: "Main evidence",
     label: "Theorem bound ratio by family",
     file: "theorem_bound_ratio_by_family.png",
-    caption: "Observed weighted residual divided by the deterministic bound. Values below 1 mean the theorem covers the observed error — the bound is conservative in all three families."
+    caption: "Observed weighted residual divided by the deterministic bound. Values below 1 mean the theorem covers the observed error.",
+    detailHtml: "The deterministic theorem gives an upper-bound template involving pair error and stationarity defect. Values below one mean the observed residual is covered by that bound. The bound is expected to be conservative across all three families."
   },
   {
+    group: "Main evidence",
     label: "Beta over residual energy",
     file: "beta_over_residual_energy_by_family.png",
-    caption: "beta_fit / mean(r^2) across all logged checkpoints. Points near 1 confirm that hidden-gradient leverage does not strongly bias the weighted average away from ordinary residual energy."
+    caption: "Beta fit tracks mean residual squared across all checkpoints.",
+    detailHtml: "The beta bridge says <span class=\"math\">&beta;<sub>fit</sub></span> is a leverage-weighted residual average. Values near one mean that hidden-gradient leverage is not strongly biasing the residual average away from ordinary mean residual energy."
   },
   {
+    group: "Main evidence",
     label: "Pushed pair error",
     file: "pushed_pair_error_by_family.png",
-    caption: "Pair error after pushing through the learned B map. This is small in all families even when the raw support-normalized A_pair diagnostic is large."
+    caption: "Pair error after pushing through the learned feature map.",
+    detailHtml: "This plot is about the pair error that actually enters the weighted law. It can be small even when the support-normalized <span class=\"math\">A<sub>pair</sub></span> diagnostic is large."
   },
-  // Trajectories
   {
+    group: "Trajectories",
     label: "Isotropic trajectory",
     file: "isotropic_two_regime_trajectory.png",
-    caption: "Two-regime trajectory for isotropic seed 0. Shows the raw-conditioned phase transitioning to the late weighted phase as training progresses."
+    caption: "Two-regime trajectory for isotropic seed 0.",
+    detailHtml: "This trajectory shows how the raw-conditioned relation and the weighted relation appear at different phases of training in the baseline isotropic family."
   },
   {
+    group: "Trajectories",
     label: "Anisotropic trajectory",
     file: "anisotropic_two_regime_trajectory.png",
-    caption: "Two-regime trajectory for anisotropic seed 0. The same regime transition appears when the input covariance has a non-trivial spectrum."
+    caption: "Two-regime trajectory for anisotropic seed 0.",
+    detailHtml: "This checks the same two-regime story when the input covariance has a nontrivial spectrum, where the effective-dimension correction matters."
   },
   {
+    group: "Trajectories",
     label: "Low-rank trajectory",
     file: "low_rank_signal_two_regime_trajectory.png",
-    caption: "Two-regime trajectory for low-rank signal seed 0. Checks the trajectory story when the signal lives in a low-dimensional planted subspace."
+    caption: "Two-regime trajectory for low-rank signal seed 0.",
+    detailHtml: "This checks the trajectory story in a structured signal family rather than pure Gaussian noise."
   },
-  // Beta collapse
   {
+    group: "Beta collapse",
     label: "Isotropic beta collapse",
     file: "isotropic_beta_collapse.png",
-    caption: "beta_fit shrinking as the isotropic network approaches interpolation. This collapse makes the raw AGOP law numerically delicate near the end of training."
+    caption: "Beta collapse for the isotropic representative run.",
+    detailHtml: "This shows <span class=\"math\">&beta;<sub>fit</sub></span> shrinking as interpolation is approached. That collapse explains why converting the weighted law into a raw AGOP law becomes numerically delicate late in training."
   },
   {
+    group: "Beta collapse",
     label: "Anisotropic beta collapse",
     file: "anisotropic_beta_collapse.png",
-    caption: "Beta collapse for the anisotropic family. Confirms the same mechanism under a non-trivial input covariance."
+    caption: "Beta collapse for the anisotropic representative run.",
+    detailHtml: "This checks whether the beta-collapse mechanism remains visible under anisotropic input geometry."
   },
   {
+    group: "Beta collapse",
     label: "Low-rank beta collapse",
     file: "low_rank_signal_beta_collapse.png",
-    caption: "Beta collapse for the low-rank signal family. Checks whether the bridge remains interpretable when signal is concentrated in a subspace."
+    caption: "Beta collapse for the low-rank representative run.",
+    detailHtml: "This checks whether the beta bridge remains interpretable when the signal lives mostly in a low-dimensional subspace."
   },
-  // Secondary diagnostic
   {
+    group: "Secondary diagnostics",
     label: "Symmetric relative error",
     file: "symmetric_relative_error_by_family.png",
-    caption: "Symmetric relative weighted-law diagnostic. A scale-normalized view; useful for honest reporting but not the primary claim."
+    caption: "Secondary relative weighted-law diagnostic.",
+    detailHtml: "This is a scale-normalized version of the weighted-law residual. It is useful for honest reporting, but it is not the central theorem diagnostic."
   },
-  // Failure-mode taxonomy (algebraic, not trained networks)
   {
+    group: "Failure-mode taxonomy",
     label: "Failure regime map",
     file: "failure_modes/regime_map.png",
-    caption: "Taxonomy of failure regimes in the (beta-axis, pair-axis) plane. The three empirical families land in the benign quadrant (top-left). This is a deterministic algebraic picture."
+    caption: "Algebraic taxonomy of failure regimes in the (beta-axis, pair-axis) plane.",
+    detailHtml: "This is a deterministic algebraic picture, not a trained-network plot. It separates regimes where beta-bridge collapse versus pair-compression failure dominate. The three empirical families land in the benign quadrant (top-left)."
   },
   {
+    group: "Failure-mode taxonomy",
     label: "Beta failure — toy example",
     file: "failure_modes/beta_failure_toy.png",
-    caption: "Algebraic toy example of beta overestimation and underestimation. A single high-leverage sample pulls beta_fit above mean(r^2) when it has high residual, and below it when it has low residual."
+    caption: "Algebraic toy example of beta over- and under-estimation.",
+    detailHtml: "A single high-leverage sample pulls <span class=\"math\">&beta;<sub>fit</sub></span> above <span class=\"math\">mean(r<sup>2</sup>)</span> when it has high residual, and below it when it has low residual. This is what the beta bridge controls."
   },
   {
+    group: "Failure-mode taxonomy",
     label: "Pair failure — toy example",
     file: "failure_modes/pair_failure_toy.png",
-    caption: "Algebraic toy example of high-gain vs low-gain pair geometry. The same global A_pair value produces large pushed error in one case and small pushed error in another, depending on whether the bad direction is high-gain."
+    caption: "Algebraic toy example of high-gain vs low-gain pair geometry.",
+    detailHtml: "The same global <span class=\"math\">A<sub>pair</sub></span> value can produce large pushed error in one case and small pushed error in another, depending on whether the bad direction is also a high-gain direction."
   }
 ]
 
-function formatValue(value, kind) {
-  if (kind === "sci") {
-    return value.toExponential(3)
-  }
-  return value.toFixed(3)
+function resolveColor(cssVar) {
+  return getComputedStyle(document.body).getPropertyValue(cssVar).trim()
 }
 
 function option(value, label) {
@@ -190,115 +213,441 @@ function option(value, label) {
   return item
 }
 
-function renderSelectors() {
-  const familySelect = document.getElementById("family-select")
-  const metricSelect = document.getElementById("metric-select")
-  const figureSelect = document.getElementById("figure-select")
-
-  Object.entries(families).forEach(([key, family]) => {
-    familySelect.appendChild(option(key, family.label))
-  })
-
-  Object.entries(metrics).forEach(([key, metric]) => {
-    metricSelect.appendChild(option(key, metric.label))
-  })
-
-  figures.forEach((figure, index) => {
-    figureSelect.appendChild(option(String(index), figure.label))
-  })
+function numberValue(id) {
+  return Number(document.getElementById(id).value)
 }
 
-function renderMetricCard() {
+function pow10(id) {
+  return Math.pow(10, numberValue(id))
+}
+
+function formatSci(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return String(value)
+  }
+  return value.toExponential(2)
+}
+
+function formatCompact(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return String(value)
+  }
+  const abs = Math.abs(value)
+  if (abs > 0 && (abs < 0.01 || abs >= 1000)) {
+    return value.toExponential(2)
+  }
+  return value.toFixed(3)
+}
+
+function setOutput(id, value, fixed = false) {
+  const output = document.getElementById(id)
+  output.textContent = fixed ? value.toFixed(2) : formatSci(value)
+}
+
+function seededMultiplier(seed, familyKey) {
+  let hash = seed + 17
+  for (let i = 0; i < familyKey.length; i += 1) {
+    hash = (hash * 31 + familyKey.charCodeAt(i)) % 9973
+  }
+  return 0.92 + (hash % 17) * 0.01
+}
+
+function currentState() {
   const familyKey = document.getElementById("family-select").value
-  const metricKey = document.getElementById("metric-select").value
   const family = families[familyKey]
-  const metric = metrics[metricKey]
-  const value = family[metricKey]
-  const card = document.getElementById("metric-card")
+  const seed = Math.max(0, Math.min(99, Math.round(numberValue("seed-input"))))
+  const seedScale = seededMultiplier(seed, familyKey)
+  const familyWeightedScale = family.weightedResidual / families.isotropic.weightedResidual
+  const familyPairScale = family.pushedPair / families.isotropic.pushedPair
+  const residualEnergy = pow10("residual-slider") * family.betaOverMean * seedScale
+  const stationarityDefect = pow10("stationarity-slider") * (0.75 + familyWeightedScale) * seedScale
+  const leverageCv = pow10("leverage-cv-slider")
+  const residSqCv = pow10("resid-cv-slider")
+  const corr = numberValue("corr-slider")
+  const pairDefect = pow10("pair-defect-slider")
+  const pairGain = pow10("pair-gain-slider")
+  const gainCorr = numberValue("gain-corr-slider")
+  const pushedPairProxy = pairDefect * pairGain * pairGain * (0.5 + familyPairScale) * seedScale
+  const weightedError = stationarityDefect + pushedPairProxy
+  const betaError = corr * leverageCv * residSqCv
+  const betaDistortion = Math.max(0.05, 1 + betaError)
+  const betaFit = residualEnergy * betaDistortion
+  const rawSensitivity = weightedError / Math.max(betaFit, 1e-12)
+  const diagnosticRisk = Math.abs(gainCorr) * pairDefect * Math.max(pairGain, 1e-8)
 
-  card.innerHTML = ""
-  const title = document.createElement("h3")
-  title.textContent = family.label + ": " + metric.label
-
-  const body = document.createElement("p")
-  body.textContent = metric.description
-
-  const valueNode = document.createElement("p")
-  valueNode.textContent = formatValue(value, metric.format)
-
-  const note = document.createElement("p")
-  note.textContent = family.summary
-
-  card.appendChild(title)
-  card.appendChild(valueNode)
-  card.appendChild(body)
-  card.appendChild(note)
-
-  if (metricKey === "betaOverMean") {
-    const range = document.createElement("p")
-    range.textContent = "Range across checkpoints: " +
-      family.betaOverMeanMin.toFixed(3) +
-      " to " +
-      family.betaOverMeanMax.toFixed(3)
-    card.appendChild(range)
+  return {
+    residualEnergy,
+    stationarityDefect,
+    leverageCv,
+    residSqCv,
+    corr,
+    pairDefect,
+    pairGain,
+    gainCorr,
+    pushedPairProxy,
+    weightedError,
+    betaFit,
+    rawSensitivity,
+    betaError,
+    betaDistortion,
+    diagnosticRisk
   }
-
-  renderMetricBars()
 }
 
-function renderClaims() {
-  const target = document.getElementById("claim-cards")
-  target.innerHTML = ""
-  claims.forEach((claim) => {
-    const template = document.getElementById("claim-template")
-    const details = template.content.firstElementChild.cloneNode(true)
-    const summary = details.querySelector("summary")
-    const text = details.querySelector("p")
-    summary.textContent = claim.title
-    text.textContent = claim.text
-    details.appendChild(summary)
-    details.appendChild(text)
-    target.appendChild(details)
+function buildRegimeRows(state) {
+  const rows = []
+  const center = Math.log10(Math.max(state.residualEnergy, 1e-8))
+  for (let i = 0; i <= 10; i += 1) {
+    const logResidual = center - 2.5 + i * 0.5
+    const residualEnergy = Math.pow(10, logResidual)
+    const betaFit = residualEnergy * state.betaDistortion
+    const rawSensitivity = state.weightedError / Math.max(betaFit, 1e-12)
+    rows.push({
+      x: residualEnergy,
+      residualEnergy,
+      betaFit,
+      weightedError: state.weightedError,
+      rawSensitivity,
+      regime: betaFit < 1e-3 ? "late weighted" : "raw-conditioned",
+      isCurrent: i === 5 ? "current" : ""
+    })
+  }
+  return rows
+}
+
+function buildBetaRows(state) {
+  const rows = []
+  // Use the largest symmetric window around state.corr that still fits in [-1, 1].
+  // This guarantees that i === 5 (the midpoint) lands exactly on state.corr.
+  const half = Math.min(1 + state.corr, 1 - state.corr)
+  const start = state.corr - half
+  const end = state.corr + half
+  for (let i = 0; i <= 10; i += 1) {
+    const corr = start + (end - start) * i / 10
+    const signedBetaError = corr * state.leverageCv * state.residSqCv
+    rows.push({
+      x: corr,
+      corr,
+      leverageCv: state.leverageCv,
+      residSqCv: state.residSqCv,
+      signedBetaError,
+      absoluteBetaError: Math.abs(signedBetaError),
+      isCurrent: i === 5 ? "current" : ""
+    })
+  }
+  return rows
+}
+
+function buildPairRows(state) {
+  const rows = []
+  const center = Math.log10(Math.max(state.pairGain, 1e-8))
+  for (let i = 0; i <= 10; i += 1) {
+    const logGain = center - 3 + i * 0.6
+    const gain = Math.pow(10, logGain)
+    const gainWeightedContribution = state.pairDefect * gain * gain
+    const diagnosticRisk = Math.abs(state.gainCorr) * state.pairDefect * gain
+    rows.push({
+      x: gain,
+      gain,
+      supportDefect: state.pairDefect,
+      gainWeightedContribution,
+      diagnosticRisk,
+      warning: diagnosticRisk > 1 ? "watch" : "harmless",
+      isCurrent: i === 5 ? "current" : ""
+    })
+  }
+  return rows
+}
+
+function buildRows(sweepKey, state) {
+  if (sweepKey === "beta") {
+    return buildBetaRows(state)
+  }
+  if (sweepKey === "pair") {
+    return buildPairRows(state)
+  }
+  return buildRegimeRows(state)
+}
+
+function plotScale(values, minPixel, maxPixel, logScale = false) {
+  const finite = values.filter((value) => Number.isFinite(value) && (!logScale || value > 0))
+  const safeValues = finite.length > 0 ? finite : [1]
+  let minValue = Math.min(...safeValues)
+  let maxValue = Math.max(...safeValues)
+
+  if (minValue === maxValue) {
+    const padding = logScale ? Math.max(minValue * 0.5, 1e-12) : Math.max(Math.abs(minValue) * 0.2, 1)
+    minValue -= padding
+    maxValue += padding
+  }
+
+  const transform = (value) => logScale ? Math.log10(Math.max(value, 1e-12)) : value
+  const minTransformed = transform(minValue)
+  const maxTransformed = transform(maxValue)
+  const span = Math.max(maxTransformed - minTransformed, 1e-9)
+
+  return (value) => {
+    const ratio = (transform(value) - minTransformed) / span
+    return minPixel + ratio * (maxPixel - minPixel)
+  }
+}
+
+function plotDomain(values, logScale = false) {
+  const finite = values.filter((value) => Number.isFinite(value) && (!logScale || value > 0))
+  const safeValues = finite.length > 0 ? finite : [1]
+  let minValue = Math.min(...safeValues)
+  let maxValue = Math.max(...safeValues)
+
+  if (minValue === maxValue) {
+    const padding = logScale ? Math.max(minValue * 0.5, 1e-12) : Math.max(Math.abs(minValue) * 0.2, 1)
+    minValue -= padding
+    maxValue += padding
+  }
+
+  return { minValue, maxValue }
+}
+
+function tickValues(values, count, logScale = false) {
+  const { minValue, maxValue } = plotDomain(values, logScale)
+  if (logScale) {
+    const minPower = Math.floor(Math.log10(Math.max(minValue, 1e-12)))
+    const maxPower = Math.ceil(Math.log10(Math.max(maxValue, 1e-12)))
+    const ticks = []
+    for (let power = minPower; power <= maxPower; power += 1) {
+      ticks.push(Math.pow(10, power))
+    }
+    return ticks.length > 0 ? ticks : [minValue, maxValue]
+  }
+
+  const ticks = []
+  const span = Math.max(maxValue - minValue, 1e-9)
+  for (let i = 0; i < count; i += 1) {
+    ticks.push(minValue + span * i / Math.max(count - 1, 1))
+  }
+  return ticks
+}
+
+function linePath(rows, key, xScale, yScale) {
+  return rows.map((row, index) => {
+    const command = index === 0 ? "M" : "L"
+    return command + " " + xScale(row.x).toFixed(2) + " " + yScale(row[key]).toFixed(2)
+  }).join(" ")
+}
+
+function svgElement(name, attrs = {}) {
+  const element = document.createElementNS("http://www.w3.org/2000/svg", name)
+  Object.entries(attrs).forEach(([key, value]) => {
+    element.setAttribute(key, value)
+  })
+  return element
+}
+
+function renderPlot(rows, sweep) {
+  const svg = document.getElementById("live-plot")
+  svg.innerHTML = ""
+
+  const width = 760
+  const height = 360
+  const left = 64
+  const right = 28
+  const top = 24
+  const bottom = 56
+  const plotWidth = width - left - right
+  const plotHeight = height - top - bottom
+
+  // Use the explicit logScale flag from the sweep config (improvement B).
+  const useLog = sweep.logScale
+
+  const xValues = rows.map((row) => row.x)
+  const yValues = sweep.series.flatMap((series) =>
+    rows.map((row) => useLog ? Math.abs(row[series.key]) : row[series.key])
+  )
+
+  const xScale = plotScale(xValues, left, left + plotWidth, useLog)
+  const yScaleRaw = plotScale(yValues, 0, plotHeight, useLog)
+  const yScale = (value) => {
+    const plotted = useLog ? Math.abs(value) : value
+    return top + plotHeight - yScaleRaw(plotted)
+  }
+
+  // Plot frame
+  svg.appendChild(svgElement("rect", {
+    x: left, y: top, width: plotWidth, height: plotHeight, rx: 14, class: "plot-frame"
+  }))
+
+  // Grid lines and y-axis labels share the same tick positions so they align (bug 3).
+  const yTicks = tickValues(yValues, 5, useLog)
+  yTicks.forEach((tick) => {
+    const y = yScale(tick)
+    svg.appendChild(svgElement("line", {
+      x1: left, x2: left + plotWidth, y1: y, y2: y,
+      "stroke-width": 1, class: "grid-line"
+    }))
+    const label = svgElement("text", {
+      x: left - 12, y: y + 4,
+      "text-anchor": "end", fill: "currentColor", "font-size": 12, class: "axis-label"
+    })
+    label.textContent = formatCompact(tick)
+    svg.appendChild(label)
+  })
+
+  // X-axis ticks and labels
+  tickValues(xValues, 5, useLog).forEach((tick) => {
+    const x = xScale(tick)
+    svg.appendChild(svgElement("line", {
+      x1: x, x2: x, y1: top + plotHeight, y2: top + plotHeight + 6,
+      stroke: "currentColor", "stroke-width": 1, class: "axis-tick"
+    }))
+    const label = svgElement("text", {
+      x, y: top + plotHeight + 23,
+      "text-anchor": "middle", fill: "currentColor", "font-size": 12, class: "axis-label"
+    })
+    label.textContent = formatCompact(tick)
+    svg.appendChild(label)
+  })
+
+  // Lines — draw all series first so dots always sit on top
+  sweep.series.forEach((series) => {
+    const color = resolveColor(series.cssVar)
+    svg.appendChild(svgElement("path", {
+      d: linePath(rows, series.key, xScale, yScale),
+      fill: "none", stroke: color, "stroke-width": 4,
+      "stroke-linecap": "round", "stroke-linejoin": "round"
+    }))
+  })
+
+  // Non-current dots
+  const panelColor = resolveColor("--panel")
+  sweep.series.forEach((series) => {
+    const color = resolveColor(series.cssVar)
+    rows.filter((row) => !row.isCurrent).forEach((row) => {
+      svg.appendChild(svgElement("circle", {
+        cx: xScale(row.x), cy: yScale(row[series.key]), r: 4, fill: color
+      }))
+    })
+  })
+
+  // Current dots drawn last so they appear on top of every line and dot (improvement A).
+  sweep.series.forEach((series) => {
+    const color = resolveColor(series.cssVar)
+    rows.filter((row) => row.isCurrent).forEach((row) => {
+      svg.appendChild(svgElement("circle", {
+        cx: xScale(row.x), cy: yScale(row[series.key]),
+        r: 7, fill: color, stroke: panelColor, "stroke-width": 2.5
+      }))
+    })
+  })
+
+  // X-axis label
+  const xLabel = svgElement("text", {
+    x: left + plotWidth / 2, y: height - 16,
+    "text-anchor": "middle", fill: "currentColor", "font-size": 14
+  })
+  xLabel.textContent = sweep.xLabel
+  svg.appendChild(xLabel)
+
+  // Y-axis label built from the series names so it names what is plotted (improvement C).
+  const yLabelText = sweep.series.map((s) => s.label).join(" · ")
+  const yLabel = svgElement("text", {
+    x: 14,
+    y: top + plotHeight / 2,
+    "text-anchor": "middle",
+    fill: "currentColor",
+    "font-size": 11,
+    transform: "rotate(-90 14 " + (top + plotHeight / 2) + ")"
+  })
+  yLabel.textContent = yLabelText
+  svg.appendChild(yLabel)
+}
+
+function renderLegend(sweep) {
+  const legend = document.getElementById("plot-legend")
+  legend.innerHTML = ""
+  sweep.series.forEach((series) => {
+    const item = document.createElement("span")
+    const swatch = document.createElement("span")
+    swatch.className = "legend-swatch"
+    swatch.style.background = "var(" + series.cssVar + ")"
+    item.appendChild(swatch)
+    item.append(series.label)
+    legend.appendChild(item)
   })
 }
 
-function metricScale(metricKey, value) {
-  const values = Object.values(families).map((family) => family[metricKey])
-  const maxValue = Math.max(...values)
-  if (!Number.isFinite(maxValue) || maxValue <= 0) {
-    return 0
-  }
-  return Math.max(4, 100 * value / maxValue)
-}
+function renderTable(rows, sweep) {
+  const head = document.getElementById("sweep-table-head")
+  const body = document.getElementById("sweep-table-body")
+  const note = document.getElementById("sweep-table-note")
+  head.innerHTML = ""
+  body.innerHTML = ""
+  note.textContent = sweep.tableNote
 
-function renderMetricBars() {
-  const metricKey = document.getElementById("metric-select").value
-  const metric = metrics[metricKey]
-  const target = document.getElementById("metric-bars")
-  target.innerHTML = ""
+  const headerRow = document.createElement("tr")
+  sweep.columns.forEach(([, label]) => {
+    const cell = document.createElement("th")
+    cell.textContent = label
+    headerRow.appendChild(cell)
+  })
+  head.appendChild(headerRow)
 
-  Object.values(families).forEach((family) => {
-    const template = document.getElementById("bar-template")
-    const bar = template.content.firstElementChild.cloneNode(true)
-    const value = family[metricKey]
-    bar.querySelector(".bar-label").textContent = family.label
-    bar.querySelector(".bar-value").textContent = formatValue(value, metric.format)
-    bar.querySelector(".bar-fill").style.width = metricScale(metricKey, value).toFixed(1) + "%"
-    target.appendChild(bar)
+  rows.forEach((row) => {
+    const tableRow = document.createElement("tr")
+    if (row.isCurrent) {
+      tableRow.classList.add("current-row")
+    }
+    sweep.columns.forEach(([key]) => {
+      const cell = document.createElement("td")
+      cell.textContent = typeof row[key] === "number" ? formatCompact(row[key]) : row[key]
+      tableRow.appendChild(cell)
+    })
+    body.appendChild(tableRow)
   })
 }
 
-function renderTable() {
+function insightCard(label, value, text) {
+  const template = document.getElementById("insight-template")
+  const card = template.content.firstElementChild.cloneNode(true)
+  card.querySelector(".insight-label").textContent = label
+  card.querySelector(".insight-value").textContent = value
+  card.querySelector(".insight-text").textContent = text
+  return card
+}
+
+function renderInsights(state) {
+  const target = document.getElementById("insight-cards")
+  target.innerHTML = ""
+  target.appendChild(insightCard(
+    "beta bridge",
+    formatSci(state.betaFit),
+    "The live model ties beta fit to residual energy, matching the empirical bridge."
+  ))
+  target.appendChild(insightCard(
+    "weighted proxy",
+    formatSci(state.weightedError),
+    "Stationarity defect plus gain-weighted pair contribution controls the weighted law."
+  ))
+  target.appendChild(insightCard(
+    "beta identity error",
+    formatCompact(state.betaError),
+    "Correlation times leverage CV times residual CV gives the signed beta error."
+  ))
+  target.appendChild(insightCard(
+    "pair risk",
+    formatSci(state.diagnosticRisk),
+    "Large defects become dangerous when they align with high stationarity gain."
+  ))
+}
+
+function renderSummaryTable() {
   const tbody = document.getElementById("summary-table")
   tbody.innerHTML = ""
-  Object.entries(families).forEach(([key, family]) => {
+  Object.values(families).forEach((family) => {
     const row = document.createElement("tr")
     const cells = [
       family.label,
-      family.weightedResidual.toExponential(2),
-      family.boundRatio.toFixed(3),
+      formatSci(family.weightedResidual),
       family.betaOverMean.toFixed(3),
-      family.pushedPair.toExponential(2)
+      formatSci(family.pushedPair)
     ]
 
     cells.forEach((text, index) => {
@@ -310,190 +659,160 @@ function renderTable() {
   })
 }
 
-function renderFigure() {
+function renderFamilyText() {
+  const familyKey = document.getElementById("family-select").value
+  const family = families[familyKey]
+  document.getElementById("family-title").textContent = family.label
+  document.getElementById("family-summary").textContent = family.summary
+}
+
+function renderLive() {
+  const state = currentState()
+  const sweepKey = document.getElementById("sweep-select").value
+  const sweep = sweeps[sweepKey]
+  const rows = buildRows(sweepKey, state)
+
+  setOutput("residual-output", state.residualEnergy)
+  setOutput("stationarity-output", state.stationarityDefect)
+  setOutput("leverage-cv-output", state.leverageCv)
+  setOutput("resid-cv-output", state.residSqCv)
+  setOutput("corr-output", state.corr, true)
+  setOutput("pair-defect-output", state.pairDefect)
+  setOutput("pair-gain-output", state.pairGain)
+  setOutput("gain-corr-output", state.gainCorr, true)
+
+  renderFamilyText()
+  document.getElementById("sweep-title").textContent = sweep.title
+  document.getElementById("sweep-description").textContent = sweep.description
+  renderLegend(sweep)
+  renderPlot(rows, sweep)
+  renderTable(rows, sweep)
+  renderInsights(state)
+}
+
+function renderReportedFigure() {
   const index = Number(document.getElementById("figure-select").value)
-  const figure = figures[index]
+  const figure = reportedFigures[index]
   const image = document.getElementById("figure-image")
   const caption = document.getElementById("figure-caption")
+  const detail = document.getElementById("figure-detail")
   image.alt = figure.caption
   image.src = figureBase + figure.file
   caption.textContent = figure.caption
+  detail.innerHTML = figure.detailHtml || ""
   image.onerror = () => {
     caption.textContent = "Figure not found at the current relative path: " + figure.file
   }
 }
 
-function pow10FromSlider(id) {
-  return Math.pow(10, Number(document.getElementById(id).value))
+function setTheme(theme) {
+  document.body.dataset.theme = theme
+  const button = document.getElementById("theme-button")
+  button.textContent = theme === "dark" ? "Use light theme" : "Use dark theme"
+  localStorage.setItem("weightedAgopTheme", theme)
 }
 
-function setOutput(id, value) {
-  document.getElementById(id).textContent = value.toExponential(2)
+function toggleTheme() {
+  const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark"
+  setTheme(nextTheme)
+  renderLive()
 }
 
-function setFixedOutput(id, value) {
-  document.getElementById(id).textContent = value.toFixed(2)
+function setView(view) {
+  document.getElementById("live-view").hidden = view !== "live"
+  document.getElementById("reported-view").hidden = view !== "reported"
+  document.querySelector(".control-sidebar").dataset.activeView = view
+
+  document.querySelectorAll(".view-button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.view === view)
+  })
 }
 
-function simCard(label, value, text) {
-  const template = document.getElementById("simulator-card-template")
-  const card = template.content.firstElementChild.cloneNode(true)
-  card.querySelector(".sim-label").textContent = label
-  card.querySelector(".sim-value").textContent = value
-  card.querySelector(".sim-text").textContent = text
-  return card
-}
+function renderSelectors() {
+  const familySelect = document.getElementById("family-select")
+  const sweepSelect = document.getElementById("sweep-select")
+  const figureSelect = document.getElementById("figure-select")
 
-function renderSimulator() {
-  const residualEnergy = pow10FromSlider("residual-slider")
-  const stationarityDefect = pow10FromSlider("stationarity-slider")
-  const pushedPairError = pow10FromSlider("pair-slider")
-  const betaFit = residualEnergy
-  const weightedError = stationarityDefect + pushedPairError
-  const rawAmplification = 1 / Math.max(betaFit, 1e-12)
-  const rawSensitivity = weightedError * rawAmplification
-  const regime = betaFit < 1e-3 ? "late weighted regime" : "intermediate raw-conditioned regime"
+  Object.entries(families).forEach(([key, family]) => {
+    familySelect.appendChild(option(key, family.label))
+  })
 
-  setOutput("residual-output", residualEnergy)
-  setOutput("stationarity-output", stationarityDefect)
-  setOutput("pair-output", pushedPairError)
+  Object.entries(sweeps).forEach(([key, sweep]) => {
+    sweepSelect.appendChild(option(key, sweep.label))
+  })
 
-  const target = document.getElementById("simulator-cards")
-  target.innerHTML = ""
-  target.appendChild(simCard(
-    "beta bridge",
-    betaFit.toExponential(2),
-    "In the experiments, beta_fit tracks residual energy."
-  ))
-  target.appendChild(simCard(
-    "weighted residual proxy",
-    weightedError.toExponential(2),
-    "Stationarity defect plus pushed pair error controls the weighted law."
-  ))
-  target.appendChild(simCard(
-    "raw sensitivity proxy",
-    rawSensitivity.toExponential(2),
-    "The raw conversion amplifies weighted-law error by about one over beta."
-  ))
-  target.appendChild(simCard(
-    "regime",
-    regime,
-    "The transition is qualitative, not a theorem threshold."
-  ))
-}
-
-function renderBetaDiagnostic() {
-  const leverageCv = pow10FromSlider("leverage-cv-slider")
-  const residSqCv = pow10FromSlider("resid-cv-slider")
-  const corr = Number(document.getElementById("corr-slider").value)
-  const deterministicBound = leverageCv * residSqCv
-  const signedRelativeError = corr * deterministicBound
-
-  setOutput("leverage-cv-output", leverageCv)
-  setOutput("resid-cv-output", residSqCv)
-  setFixedOutput("corr-output", corr)
-
-  const target = document.getElementById("beta-diagnostic-cards")
-  target.innerHTML = ""
-  target.appendChild(simCard(
-    "deterministic bound",
-    deterministicBound.toExponential(2),
-    "Cauchy-Schwarz gives absolute beta relative error at most CV(s) times CV(r^2)."
-  ))
-  target.appendChild(simCard(
-    "signed error identity",
-    signedRelativeError.toExponential(2),
-    "The exact centered identity is correlation times the two CV factors."
-  ))
-  target.appendChild(simCard(
-    "diagnostic question",
-    Math.abs(signedRelativeError).toExponential(2),
-    "Small values mean beta_fit should track mean residual squared."
-  ))
-  target.appendChild(simCard(
-    "next experiment",
-    "logged per checkpoint",
-    "The branch records leverage CV, residual CV, correlation, beta error, and the CV bound."
-  ))
-}
-
-function renderPairDiagnostic() {
-  const worstDefect = pow10FromSlider("pair-defect-slider")
-  const badDirectionGain = pow10FromSlider("pair-gain-slider")
-  const gainCorr = Number(document.getElementById("gain-corr-slider").value)
-  const gainWeightedContribution = worstDefect * badDirectionGain * badDirectionGain
-  const correlatedRisk = Math.abs(gainCorr) * worstDefect
-
-  setOutput("pair-defect-output", worstDefect)
-  setOutput("pair-gain-output", badDirectionGain)
-  setFixedOutput("gain-corr-output", gainCorr)
-
-  const target = document.getElementById("pair-diagnostic-cards")
-  target.innerHTML = ""
-  target.appendChild(simCard(
-    "support defect",
-    worstDefect.toExponential(2),
-    "This is the conservative worst-direction pair diagnostic."
-  ))
-  target.appendChild(simCard(
-    "gain on bad direction",
-    badDirectionGain.toExponential(2),
-    "Small stationarity-induced gain can make a large defect mostly invisible."
-  ))
-  target.appendChild(simCard(
-    "gain-weighted contribution",
-    gainWeightedContribution.toExponential(2),
-    "The experiment logs this kind of contribution by pair eigendirection."
-  ))
-  target.appendChild(simCard(
-    "diagnostic risk",
-    correlatedRisk.toExponential(2),
-    "High positive coupling between defect size and gain is the failure warning."
-  ))
+  const groups = new Map()
+  reportedFigures.forEach((figure, index) => {
+    const groupName = figure.group || "Other"
+    if (!groups.has(groupName)) {
+      const group = document.createElement("optgroup")
+      group.label = groupName
+      groups.set(groupName, group)
+      figureSelect.appendChild(group)
+    }
+    groups.get(groupName).appendChild(option(String(index), figure.label))
+  })
 }
 
 function reset() {
   document.getElementById("family-select").value = "isotropic"
-  document.getElementById("metric-select").value = "weightedResidual"
-  document.getElementById("figure-select").value = "0"
+  document.getElementById("seed-input").value = "0"
+  document.getElementById("sweep-select").value = "regime"
   document.getElementById("residual-slider").value = "-3"
   document.getElementById("stationarity-slider").value = "-4"
-  document.getElementById("pair-slider").value = "-5"
   document.getElementById("leverage-cv-slider").value = "-1"
   document.getElementById("resid-cv-slider").value = "0"
   document.getElementById("corr-slider").value = "0.05"
   document.getElementById("pair-defect-slider").value = "2"
   document.getElementById("pair-gain-slider").value = "-2"
   document.getElementById("gain-corr-slider").value = "0.05"
-  renderMetricCard()
-  renderFigure()
-  renderSimulator()
-  renderBetaDiagnostic()
-  renderPairDiagnostic()
+  document.getElementById("figure-select").value = "0"
+  renderLive()
+  renderReportedFigure()
 }
 
 function bindEvents() {
-  document.getElementById("family-select").addEventListener("change", renderMetricCard)
-  document.getElementById("metric-select").addEventListener("change", renderMetricCard)
-  document.getElementById("figure-select").addEventListener("change", renderFigure)
+  [
+    "family-select",
+    "sweep-select",
+    "residual-slider",
+    "stationarity-slider",
+    "leverage-cv-slider",
+    "resid-cv-slider",
+    "corr-slider",
+    "pair-defect-slider",
+    "pair-gain-slider",
+    "gain-corr-slider"
+  ].forEach((id) => {
+    const control = document.getElementById(id)
+    control.addEventListener("input", renderLive)
+    control.addEventListener("change", renderLive)
+  })
+
+  // Seed gets its own handler so we can clamp the displayed value on commit (improvement F).
+  const seedInput = document.getElementById("seed-input")
+  seedInput.addEventListener("input", renderLive)
+  seedInput.addEventListener("change", () => {
+    seedInput.value = Math.max(0, Math.min(99, Math.round(Number(seedInput.value) || 0)))
+    renderLive()
+  })
+
+  document.getElementById("figure-select").addEventListener("change", renderReportedFigure)
   document.getElementById("reset-button").addEventListener("click", reset)
-  document.getElementById("residual-slider").addEventListener("input", renderSimulator)
-  document.getElementById("stationarity-slider").addEventListener("input", renderSimulator)
-  document.getElementById("pair-slider").addEventListener("input", renderSimulator)
-  document.getElementById("leverage-cv-slider").addEventListener("input", renderBetaDiagnostic)
-  document.getElementById("resid-cv-slider").addEventListener("input", renderBetaDiagnostic)
-  document.getElementById("corr-slider").addEventListener("input", renderBetaDiagnostic)
-  document.getElementById("pair-defect-slider").addEventListener("input", renderPairDiagnostic)
-  document.getElementById("pair-gain-slider").addEventListener("input", renderPairDiagnostic)
-  document.getElementById("gain-corr-slider").addEventListener("input", renderPairDiagnostic)
+  document.getElementById("theme-button").addEventListener("click", toggleTheme)
+
+  document.querySelectorAll(".view-button").forEach((button) => {
+    button.addEventListener("click", () => setView(button.dataset.view))
+  })
 }
 
 function main() {
   renderSelectors()
-  renderClaims()
-  renderTable()
+  renderSummaryTable()
   bindEvents()
+  setTheme(localStorage.getItem("weightedAgopTheme") || "dark")
   reset()
+  setView("live")
 }
 
 main()
