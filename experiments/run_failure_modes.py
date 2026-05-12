@@ -174,46 +174,81 @@ def run_toy(output_root: Path, figure_dir: Path) -> None:
     )
 
 
-def trained_configs(output_root: Path, fast: bool) -> List[ExperimentConfig]:
-    configs = [
-        ExperimentConfig(
-            name="rare_hard_cluster_seed_0",
-            seed=0,
-            data_family="rare_region_outliers",
-            rare_fraction=0.1,
-            rare_shift=4.0,
-            rare_label_scale=4.0,
-            noise_std=0.0,
-            output_root=str(output_root / "trained"),
-        ),
-        ExperimentConfig(
-            name="rare_easy_cluster_seed_0",
-            seed=1,
-            data_family="rare_region_outliers",
-            rare_fraction=0.1,
-            rare_shift=4.0,
-            rare_label_scale=0.4,
-            noise_std=0.0,
-            output_root=str(output_root / "trained"),
-        ),
-        ExperimentConfig(
-            name="two_region_gating_stress_seed_0",
-            seed=0,
-            data_family="two_region_gating",
-            signal_noise_std=0.25,
-            noise_std=0.0,
-            output_root=str(output_root / "trained"),
-        ),
-        ExperimentConfig(
-            name="mixture_subspaces_stress_seed_0",
-            seed=0,
-            data_family="mixture_subspaces",
-            signal_rank=6,
-            signal_noise_std=0.2,
-            noise_std=0.0,
-            output_root=str(output_root / "trained"),
-        ),
-    ]
+def trained_configs(output_root: Path, fast: bool, seeds: List[int] | None = None) -> List[ExperimentConfig]:
+    seeds = list(seeds) if seeds else [0]
+    trained_root = str(output_root / "trained")
+    configs: List[ExperimentConfig] = []
+    for seed in seeds:
+        configs.extend(
+            [
+                ExperimentConfig(
+                    name=f"rare_hard_cluster_seed_{seed}",
+                    seed=seed,
+                    data_family="rare_region_outliers",
+                    rare_fraction=0.1,
+                    rare_shift=4.0,
+                    rare_label_scale=4.0,
+                    noise_std=0.0,
+                    output_root=trained_root,
+                ),
+                ExperimentConfig(
+                    name=f"rare_easy_cluster_seed_{seed}",
+                    seed=seed,
+                    data_family="rare_region_outliers",
+                    rare_fraction=0.1,
+                    rare_shift=4.0,
+                    rare_label_scale=0.4,
+                    noise_std=0.0,
+                    output_root=trained_root,
+                ),
+                ExperimentConfig(
+                    name=f"two_region_gating_stress_seed_{seed}",
+                    seed=seed,
+                    data_family="two_region_gating",
+                    signal_noise_std=0.25,
+                    noise_std=0.0,
+                    output_root=trained_root,
+                ),
+                # Low-rank, low-noise mixture: X concentrates on a small union of
+                # subspaces, so X^T X is far from scalar on the directions QR uses.
+                ExperimentConfig(
+                    name=f"mixture_subspaces_stress_seed_{seed}",
+                    seed=seed,
+                    data_family="mixture_subspaces",
+                    signal_rank=3,
+                    signal_noise_std=0.05,
+                    noise_std=0.0,
+                    output_root=trained_root,
+                ),
+                # Strongly anisotropic Gaussian inputs (covariance spectrum 1 down
+                # to 1e-4). Full-rank, so the sample Gram X^T X stays close to a
+                # scalar in high dimension; included as the "anisotropy alone does
+                # not break the weighted law" reference point.
+                ExperimentConfig(
+                    name=f"strong_anisotropic_seed_{seed}",
+                    seed=seed,
+                    data_family="gaussian",
+                    anisotropic=True,
+                    spectrum_min=1e-4,
+                    noise_std=0.0,
+                    output_root=trained_root,
+                ),
+                # Low-rank signal with a steeply anisotropic within-subspace
+                # covariance; the teacher uses the same subspace, so X^T X is
+                # genuinely non-scalar on the directions the network relies on.
+                # This is the intended pure high-gain pair-closure failure.
+                ExperimentConfig(
+                    name=f"anisotropic_low_rank_seed_{seed}",
+                    seed=seed,
+                    data_family="anisotropic_low_rank",
+                    signal_rank=10,
+                    spectrum_min=0.08,
+                    signal_noise_std=0.05,
+                    noise_std=0.0,
+                    output_root=trained_root,
+                ),
+            ]
+        )
     if fast:
         for cfg in configs:
             cfg.sgd_steps = 300
@@ -223,8 +258,8 @@ def trained_configs(output_root: Path, fast: bool) -> List[ExperimentConfig]:
     return configs
 
 
-def run_trained(output_root: Path, figure_dir: Path, fast: bool) -> None:
-    configs = trained_configs(output_root, fast)
+def run_trained(output_root: Path, figure_dir: Path, fast: bool, seeds: List[int] | None = None) -> None:
+    configs = trained_configs(output_root, fast, seeds)
     rows: List[Dict[str, object]] = []
     for cfg in configs:
         result = train_one(cfg)
@@ -268,6 +303,11 @@ def main() -> None:
         default=Path("paper/figures/failure_modes"),
     )
     parser.add_argument("--fast", action="store_true", help="Use a short trained smoke schedule.")
+    parser.add_argument(
+        "--seeds",
+        default="0",
+        help="Comma-separated seeds for the trained failure-mode families.",
+    )
     args = parser.parse_args()
 
     if not args.toy and not args.trained:
@@ -277,7 +317,8 @@ def main() -> None:
         run_toy(args.output_root, args.figure_dir)
 
     if args.trained:
-        run_trained(args.output_root, args.figure_dir, args.fast)
+        seeds = [int(part.strip()) for part in str(args.seeds).split(",") if part.strip()]
+        run_trained(args.output_root, args.figure_dir, args.fast, seeds)
 
 
 if __name__ == "__main__":

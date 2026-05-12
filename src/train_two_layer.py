@@ -101,6 +101,36 @@ def sample_low_rank_inputs(
     return X, eigvals, basis
 
 
+def sample_anisotropic_low_rank_inputs(
+    cfg: ExperimentConfig,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Low-rank signal whose within-subspace covariance is itself steeply
+    anisotropic, plus small isotropic ambient noise.
+
+    Unlike ``low_rank_signal`` (isotropic inside the signal subspace), here the
+    signal directions carry variances ``lambda_j^2`` decaying geometrically from
+    1 down to ``spectrum_min^2``. The teacher is supported on the same subspace,
+    so the network learns those directions; the sample Gram ``X^T X`` is then
+    strongly non-scalar precisely on the subspace the network uses. This is the
+    intended stress test for high-gain pair closure (a large ``F_X`` aligned with
+    the high-gain directions of ``G_stat``), while residuals stay roughly uniform
+    so the beta link is unaffected.
+    """
+    basis_raw = torch.randn(cfg.d, cfg.signal_rank, dtype=dtype, device=device)
+    basis, _ = torch.linalg.qr(basis_raw, mode="reduced")  # d x k, orthonormal columns
+    log_min = math.log(cfg.spectrum_min)
+    exponents = torch.linspace(0.0, 1.0, cfg.signal_rank, dtype=dtype, device=device)
+    lam = torch.exp(log_min * exponents)  # length k, geometric from 1 down to spectrum_min
+    z = torch.randn(cfg.n, cfg.signal_rank, dtype=dtype, device=device) * lam.unsqueeze(0)
+    ambient_noise = torch.randn(cfg.n, cfg.d, dtype=dtype, device=device)
+    X = z @ basis.T + cfg.signal_noise_std * ambient_noise
+    eigvals = torch.full((cfg.d,), cfg.signal_noise_std ** 2, dtype=dtype, device=device)
+    eigvals[: cfg.signal_rank] = eigvals[: cfg.signal_rank] + lam ** 2
+    return X, eigvals, basis
+
+
 def sample_clustered_inputs(
     cfg: ExperimentConfig,
     dtype: torch.dtype,
@@ -193,6 +223,8 @@ def generate_teacher_student_dataset(cfg: ExperimentConfig, dtype: torch.dtype, 
         X, eigvals = sample_inputs(cfg, dtype=dtype, device=device)
     elif cfg.data_family == "low_rank_signal":
         X, eigvals, signal_basis = sample_low_rank_inputs(cfg, dtype=dtype, device=device)
+    elif cfg.data_family == "anisotropic_low_rank":
+        X, eigvals, signal_basis = sample_anisotropic_low_rank_inputs(cfg, dtype=dtype, device=device)
     elif cfg.data_family == "clustered_gaussian":
         X, eigvals = sample_clustered_inputs(cfg, dtype=dtype, device=device)
     elif cfg.data_family == "mixture_subspaces":

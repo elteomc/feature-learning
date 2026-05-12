@@ -260,6 +260,10 @@ def build_summary(results: List[Dict[str, object]]) -> Dict[str, object]:
             row for row in results
             if row["config"].get("data_family", "gaussian") == "low_rank_signal"
         ],
+        "anisotropic_low_rank": [
+            row for row in results
+            if row["config"].get("data_family", "gaussian") == "anisotropic_low_rank"
+        ],
         "clustered_gaussian": [
             row for row in results
             if row["config"].get("data_family", "gaussian") == "clustered_gaussian"
