@@ -430,14 +430,15 @@
     \begin{column}{0.48\textwidth}
       \textbf{Open}
       \begin{itemize}\setlength\itemsep{1pt}
+        \item \emph{Isolate a pure pair failure}: every pair-geometry attack so far self-aligns. We still lack a family that degrades the weighted law \emph{without} bending beta (e.g.\ a large shifted-input cluster).
         \item \emph{Dynamics route}: derive beta decorrelation from training (leverage-sensitive damping).
         \item \emph{Adaptive concentration}: high-gain pair closure for learned subspaces.
         \item \emph{Full phase diagram}: deliberate sweeps over leverage-residual correlation and high-gain anisotropy, with samplewise diagnostics.
         \item Extension beyond two layers (layerwise Jacobian factors).
       \end{itemize}
-      \vspace{6pt}
+      \vspace{4pt}
       \begin{ibox}{Take-home}
-        Raw NFA is useful but \emph{regime-dependent}. The primitive object in two-layer stationarity is the \emph{residual-weighted} law, and raw AGOP is a derived consequence governed by beta and high-gain pair closure.
+        Raw NFA is useful but \emph{regime-dependent}: at convergence the primitive object is the \emph{residual-weighted} law, and raw AGOP is its conditioned consequence.
       \end{ibox}
       \vfill\null
     \end{column}
